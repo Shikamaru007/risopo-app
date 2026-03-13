@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background-color: #f7f7f8;
+}
+
+body {
+  font-family: "Google Sans", Inter, system-ui, sans-serif;
+  background: #f7f7f8;
+  color: #0f172a;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.card {
+  @apply bg-white border border-gray-100 shadow-soft rounded-2xl;
+}
