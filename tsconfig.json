@@ -2,8 +2,8 @@
   "extends": "./tsconfig.node.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "types": ["vite/client", "vite-plugin-pwa/client"]
+    "types": ["vite/client", "vite-plugin-pwa/client"],
+    "noEmit": true
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src"]
 }

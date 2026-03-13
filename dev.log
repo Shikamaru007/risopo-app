@@ -46,3 +46,20 @@ warnings
 [2m8:32:27 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/db/index.d.ts[22m
 [2m8:32:27 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/db/client.d.ts[22m
 [2m8:32:27 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/types/settings.d.ts[22m
+[2m9:21:59 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/layouts/AppLayout.tsx[22m
+[2m9:22:11 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/pages/DashboardPage.tsx[22m
+[2m9:22:25 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/pages/InvoicesPage.tsx[22m
+[2m9:22:39 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/pages/InvoiceBuilderPage.tsx[22m
+[2m9:22:55 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/pages/SettingsPage.tsx[22m
+[2m9:23:23 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/layouts/AppLayout.js[22m
+[2m9:23:23 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/layouts/AppLayout.js[22m
+[2m9:23:23 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/DashboardPage.js[22m
+[2m9:23:23 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/InvoicesPage.js[22m
+[2m9:23:24 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/SettingsPage.js[22m
+[2m9:23:24 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/InvoiceBuilderPage.js[22m
+[2m9:25:44 AM[22m [36m[1m[vite][22m[39m changed tsconfig file detected: C:\Users\Dell\Documents\Dev\risopo-app\tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+[2m9:25:58 AM[22m [36m[1m[vite][22m[39m changed tsconfig file detected: C:\Users\Dell\Documents\Dev\risopo-app\tsconfig.node.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+[2m9:27:35 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mindex.html[22m
+[2m9:27:45 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles/global.css[22m
+[2m9:27:57 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/utils/nav.ts[22m
+[2m9:28:25 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/layouts/AppLayout.tsx[22m
