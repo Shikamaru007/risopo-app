@@ -61,15 +61,29 @@ const BottomNav: React.FC = () => {
 };
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
+  const { pathname } = useLocation();
+  const headerTitle = pathname.startsWith('/invoices')
+    ? 'Invoices'
+    : pathname.startsWith('/settings')
+      ? 'Settings'
+      : pathname.startsWith('/builder')
+        ? 'Invoice Builder'
+        : '';
+  const showLogo = headerTitle === '';
+
   return (
     <div className="relative min-h-screen bg-surface text-ink">
       <div className="flex-1">
         <header className="sticky top-0 z-30">
           <div className="mx-auto flex items-center justify-between px-4 py-4 md:px-8">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/20 text-sm font-semibold text-ink/80">
-                R
-              </div>
+              {showLogo ? (
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/20 text-sm font-semibold text-ink/80">
+                  R
+                </div>
+              ) : (
+                <span className="text-2xl font-bold text-ink">{headerTitle}</span>
+              )}
             </div>
             <div className="flex items-center text-gray-700">
               <button

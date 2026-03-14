@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { liveQuery } from 'dexie';
 import { Fab } from '../components/Fab';
 import { StatsCard } from '../components/StatsCard';
+import { InvoiceCard } from '../components/InvoiceCard';
+import { EmptyState } from '../components/EmptyState';
 import { listInvoices } from '../db/invoices';
 import { InvoiceRecord } from '../types/invoice';
 import { useDexieReady } from '../hooks/useDexieReady';
@@ -57,12 +59,19 @@ export const DashboardPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-semibold text-ink">Recent invoices</h3>
         </div>
-        <div className="mt-4 rounded-2xl px-4 py-6 text-center">
-          <p className="text-base font-semibold text-slate-600">No invoices yet</p>
-          <p className="mt-1 text-sm text-slate-400">
-            Your recent invoices will appear here once you create one.
-          </p>
-        </div>
+        {invoices.length === 0 ? (
+          <EmptyState
+            className="mt-4"
+            title="No invoices yet"
+            description="Your recent invoices will appear here once you create one."
+          />
+        ) : (
+          <div className="mt-4 space-y-3">
+            {invoices.slice(0, 3).map((invoice) => (
+              <InvoiceCard key={invoice.id} invoice={invoice} />
+            ))}
+          </div>
+        )}
       </section>
 
       <Fab />

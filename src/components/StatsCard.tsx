@@ -3,15 +3,31 @@ import React from 'react';
 interface StatsCardProps {
   title: string;
   value: string | number;
+  children?: React.ReactNode;
+  className?: string;
+  titleClassName?: string;
+  valueClassName?: string;
 }
 
-export const StatsCard: React.FC<StatsCardProps> = ({ title, value }) => {
+export const StatsCard: React.FC<StatsCardProps> = ({
+  title,
+  value,
+  children,
+  className = '',
+  titleClassName = '',
+  valueClassName = ''
+}) => {
   return (
-    <div className="card flex flex-col gap-3 rounded-[32px] p-6 shadow-[0_2px_10px_-8px_rgba(15,23,42,0.25)]">
-      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 font-['Google_Sans_Mono',monospace]">
+    <div
+      className={`card flex flex-col gap-3 rounded-[32px] p-6 shadow-[0_2px_10px_-8px_rgba(15,23,42,0.25)] ${className}`}
+    >
+      <span
+        className={`text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 font-['Google_Sans_Mono',monospace] ${titleClassName}`}
+      >
         {title}
       </span>
-      <span className="text-3xl font-semibold text-ink">{value}</span>
+      {children}
+      <span className={`text-3xl font-semibold text-ink ${valueClassName}`}>{value}</span>
     </div>
   );
 };
