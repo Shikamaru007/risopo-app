@@ -3,10 +3,15 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.json']
+  },
   plugins: [
     react(),
     VitePWA({
+      disable: true,
       registerType: 'autoUpdate',
+      injectRegister: null,
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Offline Invoice Generator',
@@ -32,7 +37,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       },
-      devOptions: { enabled: true }
+      devOptions: { enabled: false }
     })
   ]
 });
