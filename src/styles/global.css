@@ -5,6 +5,10 @@
 :root {
   color-scheme: light;
   background-color: #fafafa;
+  --brand-blue: #0f4cac;
+  --brand-blue-dark: #0b3c86;
+  --brand-blue-pressed: #4b73b8;
+  --tab-muted: #c6c6c6;
 }
 
 body {
@@ -16,7 +20,6 @@ body {
 }
 
 .icon {
-  font-family: "Material Icons Round", "Material Symbols Rounded", sans-serif;
   font-weight: 500;
   font-style: normal;
   font-size: 20px;
