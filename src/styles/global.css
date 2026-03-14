@@ -4,19 +4,19 @@
 
 :root {
   color-scheme: light;
-  background-color: #f7f7f8;
+  background-color: #fafafa;
 }
 
 body {
   font-family: "Google Sans", Inter, system-ui, sans-serif;
-  background: #f7f7f8;
+  background: #fafafa;
   color: #0f172a;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 
 .icon {
-  font-family: "Material Symbols Rounded", sans-serif;
+  font-family: "Material Icons Round", "Material Symbols Rounded", sans-serif;
   font-weight: 500;
   font-style: normal;
   font-size: 20px;

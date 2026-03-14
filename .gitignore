@@ -21,3 +21,5 @@ tsconfig.tsbuildinfo
 # emitted JS/CSS (tsc --noEmit prevents, but safeguard)
 src/**/*.js
 src/**/*.js.map
+src/**/*.d.ts
+!src/vite-env.d.ts

@@ -12,9 +12,9 @@ const config: Config = {
         sans: ['"Google Sans"', 'Inter', 'system-ui', 'sans-serif']
       },
       colors: {
-        surface: '#f7f7f8',
+        surface: '#fafafa',
         ink: '#0f172a',
-        accent: '#2563eb'
+        accent: '#141B34'
       },
       boxShadow: {
         soft: '0 10px 30px -12px rgba(15, 23, 42, 0.12)'
