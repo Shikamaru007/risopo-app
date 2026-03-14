@@ -83,11 +83,28 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     window.localStorage.setItem('theme', theme);
   }, [theme]);
 
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 8);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
     <div className="relative min-h-screen bg-surface text-ink">
       <div className="flex-1">
         <header className="sticky top-0 z-30">
-          <div className="mx-auto flex items-center justify-between px-4 py-4 md:px-8">
+          <div
+            className={`mx-auto flex items-center justify-between px-4 py-4 transition-all md:px-8 ${
+              scrolled
+                ? 'bg-gradient-to-b from-white/85 via-white/60 to-transparent backdrop-blur-md dark:from-black/70 dark:via-black/40 dark:to-transparent'
+                : 'bg-transparent'
+            }`}
+          >
             <div className="flex items-center gap-3">
               {showLogo ? (
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/20 text-sm font-semibold text-ink/80">
