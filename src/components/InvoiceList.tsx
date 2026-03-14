@@ -54,7 +54,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
   return (
     <div className="space-y-3">
       {invoices.map((invoice) => (
-        <div key={invoice.id} className="rounded-3xl bg-white p-4 shadow-soft">
+        <div key={invoice.id} className="rounded-3xl bg-white p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span

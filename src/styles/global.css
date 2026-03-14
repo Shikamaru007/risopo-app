@@ -19,6 +19,59 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background: #050505;
+  color: #c7cbd4;
+}
+
+.dark .bg-surface {
+  background-color: #050505;
+}
+
+.dark .text-ink {
+  color: #d5d8e0;
+}
+
+.dark .bg-white {
+  background-color: #0a0a0a;
+}
+
+.dark .bg-slate-50 {
+  background-color: #0f0f10;
+}
+
+.dark .text-black {
+  color: #d5d8e0;
+}
+
+.dark .text-slate-600 {
+  color: #cbd5f5;
+}
+
+.dark .text-slate-500 {
+  color: #a8b0c2;
+}
+
+.dark .text-slate-400 {
+  color: #8a93a7;
+}
+
+.dark .border-slate-200 {
+  border-color: #2a2a2c;
+}
+
+.dark .border-slate-100 {
+  border-color: #1c1c1e;
+}
+
+.dark .border-\[\#E9EBE9\] {
+  border-color: #1c1c1e;
+}
+
 .icon {
   font-weight: 500;
   font-style: normal;
@@ -30,5 +83,5 @@ body {
 }
 
 .card {
-  @apply bg-white border border-gray-100 shadow-soft rounded-2xl;
+  @apply bg-white rounded-2xl;
 }

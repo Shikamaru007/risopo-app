@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { navItems, NavIconName } from '../utils/nav';
 
@@ -27,7 +27,7 @@ const BottomNav: React.FC = () => {
   const { pathname } = useLocation();
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E9EBE9] bg-white shadow-[0_0_30px_rgba(28,26,21,0.03)]"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E9EBE9] bg-white"
       style={{
         paddingTop: '8px',
         paddingLeft: '24px',
@@ -70,6 +70,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         ? 'Invoice Builder'
         : '';
   const showLogo = headerTitle === '';
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light';
+    const saved = window.localStorage.getItem('theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', theme === 'dark');
+    window.localStorage.setItem('theme', theme);
+  }, [theme]);
 
   return (
     <div className="relative min-h-screen bg-surface text-ink">
@@ -87,10 +99,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             </div>
             <div className="flex items-center text-gray-700">
               <button
-                aria-label="Menu"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl shadow-soft hover:shadow-md"
+                aria-label="Toggle theme"
+                onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl"
               >
-                <span className="icon material-icons-round text-[22px]">more_vert</span>
+                <span className="icon material-symbols-rounded text-[20px]">
+                  {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+                </span>
               </button>
             </div>
           </div>

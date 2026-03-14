@@ -81,7 +81,7 @@ export const InvoicePreviewPage: React.FC = () => {
       )}
 
       {!loading && invoice && (
-        <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-soft">
+        <section className="rounded-3xl border border-slate-100 bg-white p-6">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="space-y-2">
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
