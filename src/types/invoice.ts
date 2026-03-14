@@ -19,6 +19,7 @@ export interface InvoiceItem {
 export interface InvoiceRecord {
   id: string;
   invoiceNumber: string;
+  status?: 'pending' | 'paid';
   issueDate?: string;
   dueDate?: string;
   currency: string;

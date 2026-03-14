@@ -81,7 +81,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             </div>
           </div>
         </header>
-        <main className="mx-auto max-w-5xl px-4 pb-32 pt-8 md:px-10 md:pb-8 lg:px-12">{children}</main>
+        <main className="mx-auto max-w-5xl px-4 pb-32 pt-1 md:px-10 md:pb-8 md:pt-2 lg:px-12">
+          {children}
+        </main>
       </div>
       <BottomNav />
     </div>
