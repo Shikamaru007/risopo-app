@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { navItems, NavIconName } from '../utils/nav';
 import risopoLogo from '../assets/risopo.svg';
 
@@ -88,14 +88,37 @@ const BottomNav: React.FC = () => {
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const headerTitle = pathname.startsWith('/invoices')
     ? 'Invoices'
     : pathname.startsWith('/settings')
       ? 'Settings'
       : pathname.startsWith('/builder')
-        ? 'Invoice Builder'
+        ? 'Create Invoice'
         : '';
   const showLogo = headerTitle === '';
+  const showBuilderBack = pathname.startsWith('/builder');
+  const showNewInvoice = pathname === '/dashboard';
+  const hideNav = pathname.startsWith('/builder');
+  const showHomeButton = pathname.startsWith('/builder');
+
+  const builderStepOrder = useMemo(() => ['client', 'items', 'payment', 'review'], []);
+  const builderStepIndex = useMemo(() => {
+    const step = searchParams.get('step');
+    if (!step) return 0;
+    const index = builderStepOrder.indexOf(step);
+    return index === -1 ? 0 : index;
+  }, [builderStepOrder, searchParams]);
+
+  const handleBuilderBack = () => {
+    if (builderStepIndex <= 0) {
+      navigate('/dashboard');
+      return;
+    }
+    const nextStep = builderStepOrder[builderStepIndex - 1];
+    navigate(`/builder?step=${nextStep}`);
+  };
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') return 'light';
     const saved = window.localStorage.getItem('theme');
@@ -122,7 +145,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   return (
     <div className="relative min-h-screen bg-surface text-ink">
-      <DesktopNav />
+      {!hideNav && <DesktopNav />}
       <div className="flex-1">
         <header className="sticky top-0 z-30">
           <div
@@ -133,13 +156,38 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             }`}
           >
             <div className="flex items-center gap-3">
-                {showLogo ? (
-                  <img src={risopoLogo} alt="Risopo" className="h-8 w-8" />
-                ) : (
-                  <span className="text-2xl font-bold text-ink">{headerTitle}</span>
-                )}
+              {showLogo ? (
+                <img src={risopoLogo} alt="Risopo" className="h-8 w-8" />
+              ) : (
+                <div className="flex items-center gap-3">
+                  {showBuilderBack && (
+                    <button
+                      type="button"
+                      onClick={handleBuilderBack}
+                      aria-label="Back to dashboard"
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
+                    >
+                      <span className="icon material-symbols-rounded text-[20px]">
+                        arrow_back
+                      </span>
+                    </button>
+                  )}
+                  <span className="text-[clamp(18px,3.2vw,28px)] font-bold text-ink">
+                    {headerTitle}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 text-gray-700">
+              {showHomeButton && (
+                <Link
+                  to="/dashboard"
+                  aria-label="Go to dashboard"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
+                >
+                  <span className="icon material-symbols-rounded text-[20px]">home</span>
+                </Link>
+              )}
               <button
                 aria-label="Toggle theme"
                 onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
@@ -149,13 +197,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   {theme === 'dark' ? 'light_mode' : 'dark_mode'}
                 </span>
               </button>
-              <Link
-                to="/builder"
-                className="hidden md:inline-flex items-center gap-2 rounded-full bg-[var(--brand-blue)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] active:bg-[var(--brand-blue-pressed)] md:px-5 md:py-[10px]"
-              >
-                <span className="icon material-symbols-rounded text-[18px]">add</span>
-                New Invoice
-              </Link>
+              {showNewInvoice && (
+                <Link
+                  to="/builder"
+                  className="hidden md:inline-flex items-center gap-2 rounded-full bg-[var(--brand-blue)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] active:bg-[var(--brand-blue-pressed)] md:px-5 md:py-[10px]"
+                >
+                  <span className="icon material-symbols-rounded text-[18px]">add</span>
+                  New Invoice
+                </Link>
+              )}
             </div>
           </div>
         </header>
@@ -163,7 +213,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           {children}
         </main>
       </div>
-      <BottomNav />
+      {!hideNav && <BottomNav />}
     </div>
   );
 };

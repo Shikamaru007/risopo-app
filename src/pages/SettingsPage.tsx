@@ -4,6 +4,7 @@ import { getSettings, upsertSettings } from '../db/settings';
 import { PaymentMethod } from '../types/settings';
 import { SettingsRecord } from '../types/settings';
 import { useDexieReady } from '../hooks/useDexieReady';
+import { FieldLabel, SelectInput, TextInput, TextareaInput } from '../components/FormFields';
 
 type SettingsForm = {
   businessName: string;
@@ -219,7 +220,7 @@ export const SettingsPage: React.FC = () => {
           </div>
           <label className="inline-flex items-center gap-2 rounded-full bg-[rgba(15,76,172,0.08)] px-5 py-2.5 text-sm font-semibold text-[var(--brand-blue)]">
             Upload logo
-            <input
+            <TextInput
               type="file"
               accept="image/*"
               className="hidden"
@@ -235,37 +236,33 @@ export const SettingsPage: React.FC = () => {
           <p className="text-sm text-slate-500">Update the details that appear on invoices.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="space-y-2 text-sm text-slate-500">
-            <span className="font-semibold text-slate-600">Name</span>
-            <input
+          <label className="space-y-1.5 text-sm text-slate-500">
+            <FieldLabel>Name</FieldLabel>
+            <TextInput
               value={form.businessName}
               onChange={(event) => updateField('businessName', event.target.value)}
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]"
             />
           </label>
-          <label className="space-y-2 text-sm text-slate-500">
-            <span className="font-semibold text-slate-600">Email</span>
-            <input
+          <label className="space-y-1.5 text-sm text-slate-500">
+            <FieldLabel>Email</FieldLabel>
+            <TextInput
               value={form.businessEmail}
               onChange={(event) => updateField('businessEmail', event.target.value)}
               type="email"
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]"
             />
           </label>
-          <label className="space-y-2 text-sm text-slate-500">
-            <span className="font-semibold text-slate-600">Phone</span>
-            <input
+          <label className="space-y-1.5 text-sm text-slate-500">
+            <FieldLabel>Phone</FieldLabel>
+            <TextInput
               value={form.phone}
               onChange={(event) => updateField('phone', event.target.value)}
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]"
             />
           </label>
-          <label className="space-y-2 text-sm text-slate-500 md:col-span-2">
-            <span className="font-semibold text-slate-600">Address</span>
-            <input
+          <label className="space-y-1.5 text-sm text-slate-500 md:col-span-2">
+            <FieldLabel>Address</FieldLabel>
+            <TextInput
               value={form.businessAddress}
               onChange={(event) => updateField('businessAddress', event.target.value)}
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]"
             />
           </label>
         </div>
@@ -277,16 +274,16 @@ export const SettingsPage: React.FC = () => {
           <p className="text-sm text-slate-500">Set the default currency for new invoices.</p>
         </div>
         <div className="relative">
-          <select
+          <SelectInput
             value={form.defaultCurrency}
             onChange={(event) => updateField('defaultCurrency', event.target.value)}
-            className="h-11 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-16 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]"
+            className="pr-16"
           >
             <option value="NGN">₦ Naira (NGN)</option>
             <option value="USD">$ Dollar (USD)</option>
             <option value="GBP">£ Pounds (GBP)</option>
             <option value="JPY">¥ Yen (JPY)</option>
-          </select>
+          </SelectInput>
           <span className="pointer-events-none absolute right-5 top-[52%] -translate-y-1/2 text-slate-400">
             <span className="icon material-symbols-rounded text-[22px]">expand_more</span>
           </span>
@@ -387,7 +384,7 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <input
+                  <TextInput
                     value={method.bankName}
                     onChange={(event) =>
                       updateDraftMethod(method.id, {
@@ -395,35 +392,34 @@ export const SettingsPage: React.FC = () => {
                       })
                     }
                     placeholder="Bank name"
-                    className={`h-10 rounded-xl border bg-white px-3 text-sm text-ink focus:outline-none focus:ring-2 ${
+                    className={
                       bankNameInvalid
                         ? 'border-red-300 focus:ring-red-200'
                         : 'border-slate-200 focus:ring-[var(--brand-blue)]'
-                    }`}
+                    }
                   />
-                  <input
+                  <TextInput
                     value={method.accountName}
                     onChange={(event) =>
                       updateDraftMethod(method.id, { accountName: event.target.value })
                     }
                     placeholder="Account name"
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]"
                   />
-                  <input
+                  <TextInput
                     value={method.accountNumber}
                     onChange={(event) =>
                       updateDraftMethod(method.id, {
                         accountNumber: event.target.value.replace(/\D+/g, '').slice(0, 10)
                       })
                     }
-                  placeholder="Account number"
-                  inputMode="numeric"
-                  pattern="\d*"
-                  className={`h-10 rounded-xl border bg-white px-3 text-sm text-ink focus:outline-none focus:ring-2 ${
+                    placeholder="Account number"
+                    inputMode="numeric"
+                    pattern="\\d*"
+                    className={
                       accountNumberInvalid
                         ? 'border-red-300 focus:ring-red-200'
                         : 'border-slate-200 focus:ring-[var(--brand-blue)]'
-                    }`}
+                    }
                   />
                 </div>
                 <div className="mt-2 space-y-1 text-xs text-red-500">
@@ -497,37 +493,37 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <input
+                  <TextInput
                     value={method.label}
                     onChange={(event) =>
                       updateDraftMethod(method.id, { label: event.target.value })
                     }
                     placeholder="Label"
-                    className={`h-10 rounded-xl border bg-white px-3 text-sm text-ink focus:outline-none focus:ring-2 ${
+                    className={
                       labelInvalid
                         ? 'border-red-300 focus:ring-red-200'
                         : 'border-slate-200 focus:ring-[var(--brand-blue)]'
-                    }`}
+                    }
                   />
-                  <input
+                  <TextInput
                     value={method.network}
                     onChange={(event) =>
                       updateDraftMethod(method.id, { network: event.target.value })
                     }
                     placeholder="Network"
-                    className={`h-10 rounded-xl border bg-white px-3 text-sm text-ink focus:outline-none focus:ring-2 ${
+                    className={
                       networkInvalid
                         ? 'border-red-300 focus:ring-red-200'
                         : 'border-slate-200 focus:ring-[var(--brand-blue)]'
-                    }`}
+                    }
                   />
-                  <input
+                  <TextInput
                     value={method.walletAddress}
                     onChange={(event) =>
                       updateDraftMethod(method.id, { walletAddress: event.target.value })
                     }
                     placeholder="Wallet address"
-                    className={`h-10 rounded-xl border bg-white px-3 text-sm text-ink focus:outline-none focus:ring-2 md:col-span-2 ${
+                    className={`md:col-span-2 ${
                       walletInvalid
                         ? 'border-red-300 focus:ring-red-200'
                         : 'border-slate-200 focus:ring-[var(--brand-blue)]'
@@ -602,27 +598,27 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <input
+                  <TextInput
                     value={method.label}
                     onChange={(event) =>
                       updateDraftMethod(method.id, { label: event.target.value })
                     }
                     placeholder="Label"
-                    className={`h-10 rounded-xl border bg-white px-3 text-sm text-ink focus:outline-none focus:ring-2 ${
+                    className={
                       labelInvalid
                         ? 'border-red-300 focus:ring-red-200'
                         : 'border-slate-200 focus:ring-[var(--brand-blue)]'
-                    }`}
+                    }
                   />
-                  <input
+                  <TextInput
                     value={method.url}
                     onChange={(event) => updateDraftMethod(method.id, { url: event.target.value })}
                     placeholder="Payment URL"
-                    className={`h-10 rounded-xl border bg-white px-3 text-sm text-ink focus:outline-none focus:ring-2 ${
+                    className={
                       urlInvalid
                         ? 'border-red-300 focus:ring-red-200'
                         : 'border-slate-200 focus:ring-[var(--brand-blue)]'
-                    }`}
+                    }
                   />
                 </div>
                 <div className="mt-2 space-y-1 text-xs text-red-500">
@@ -642,11 +638,10 @@ export const SettingsPage: React.FC = () => {
             Provide a short policy. AI will expand this for invoices.
           </p>
         </div>
-        <textarea
+        <TextareaInput
           rows={4}
           value={form.refundPolicy}
           onChange={(event) => updateField('refundPolicy', event.target.value)}
-          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]"
         />
       </section>
 

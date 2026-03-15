@@ -148,146 +148,162 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
 
   return (
     <div
-      className={`relative h-[842px] w-[595px] bg-white text-[#787c7d] ${className || ''}`}
+      className={`relative h-[842px] w-[595px] bg-white p-[44px] text-[#787c7d] ${className || ''}`}
     >
-      <div className="absolute left-[44px] top-[44px] flex h-[48px] w-[48px] items-center justify-center">
-        <img
-          alt="Company logo"
-          className="h-[10.9px] w-[48px] object-contain"
-          src={logoUrl || risopoLogo}
-        />
-      </div>
-
-      <div className="absolute right-[44px] top-[44px] flex flex-col items-end pb-1">
-        <p className="text-[45px] font-semibold leading-[1.2] text-[#575757]">Invoice</p>
-        <div className="flex items-center gap-2 text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
-          <span>Invoice no:</span>
-          <span className="text-right">{invoice?.invoiceNumber || '#INV-103'}</span>
-        </div>
-      </div>
-
-      <div className="absolute left-[44px] top-[137px] flex w-[292px] items-center justify-between">
-        <div className="flex w-[71px] flex-col gap-1">
-          <span className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">Date</span>
-          <span className="text-[12px] text-[#787c7d]">{issueDate}</span>
-        </div>
-        <div className="flex w-[71px] flex-col gap-1">
-          <span className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
-            Currency
-          </span>
-          <span className="text-[12px] text-[#787c7d]">{currency.label}</span>
-        </div>
-      </div>
-
-      <div className="absolute left-[44px] top-[201px] flex w-[342px] items-start justify-between">
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">From</span>
-          <div className="flex flex-col gap-0.5 text-[12px] text-[#787c7d]">
-            <span>{fromName}</span>
-            <span>{fromEmail || '—'}</span>
-            <span>{fromPhone || '—'}</span>
-          </div>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">To</span>
-          <div className="flex flex-col gap-0.5 text-[12px] text-[#787c7d]">
-            <span>{toName}</span>
-            <span>{toEmail || '—'}</span>
-            <span>{toPhone || '—'}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute left-[44px] top-[299px] flex w-[507px] flex-col gap-6">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
-            <span className="flex-1">Item / Service</span>
-            <div className="flex items-center gap-3 text-right">
-              <span className="w-[118px]">Unit Cost</span>
-              <span className="w-[50px]">Qty</span>
-              <span className="w-[82px]">Amount</span>
+      <div className="flex h-full w-full flex-col items-start justify-between">
+        <div className="flex w-[507px] flex-1 flex-col justify-between">
+          <div className="flex flex-col gap-8">
+            <div className="flex items-start justify-between">
+              <div className="flex h-[48px] w-[48px] items-center justify-center overflow-hidden">
+                <img
+                  alt="Company logo"
+                  className="h-[10.9px] w-[48px] object-contain"
+                  src={logoUrl || risopoLogo}
+                />
+              </div>
+              <div className="flex flex-col items-end justify-center">
+                <div className="text-[45px] font-semibold leading-[54px] text-[#575757]">
+                  Invoice
+                </div>
+                <div className="flex items-center justify-end gap-2 text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                  <div>Invoice no:</div>
+                  <div>{invoice?.invoiceNumber || '#INV-103'}</div>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-6 text-[12px] text-[#787c7d]">
-            {items.map((item) => {
-              const description = item.description || item.name;
-              const amount = item.total ?? item.unitPrice * item.quantity;
-              return (
-                <div key={item.id} className="flex items-start gap-3">
-                  <span className="flex-1">{description}</span>
-                  <div className="flex items-center gap-3 text-right">
-                    <span className="w-[118px] tracking-[0.2px]">
-                      {formatNumber(item.unitPrice)}
-                    </span>
-                    <span className="w-[50px]">{formatNumber(item.quantity, 0)}</span>
-                    <span className="w-[82px] tracking-[0.2px]">
-                      {formatNumber(amount)}
-                    </span>
+            <div className="flex w-[292px] items-center justify-between">
+              <div className="flex w-[71px] flex-col items-start gap-1">
+                <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                  Date
+                </div>
+                <div className="text-[12px] text-[#787c7d]">{issueDate}</div>
+              </div>
+              <div className="flex w-[71px] flex-col items-start gap-1">
+                <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                  Currency
+                </div>
+                <div className="text-[12px] text-[#787c7d]">{currency.label}</div>
+              </div>
+            </div>
+
+            <div className="flex w-[342px] items-start justify-between">
+              <div className="flex flex-col items-start gap-1">
+                <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                  From
+                </div>
+                <div className="flex flex-col items-start gap-0.5">
+                  <div className="text-[12px] text-[#787c7d]">{fromName}</div>
+                  <div className="text-[12px] text-[#787c7d]">{fromEmail || '—'}</div>
+                  <div className="text-[12px] text-[#787c7d]">{fromPhone || '—'}</div>
+                </div>
+              </div>
+              <div className="flex flex-col items-start gap-1">
+                <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                  To
+                </div>
+                <div className="flex flex-col items-start gap-0.5">
+                  <div className="text-[12px] text-[#787c7d]">{toName}</div>
+                  <div className="text-[12px] text-[#787c7d]">{toEmail || '—'}</div>
+                  <div className="text-[12px] text-[#787c7d]">{toPhone || '—'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-end gap-6">
+              <div className="flex w-full flex-col gap-3">
+                <div className="flex items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                  <div className="flex-1">Item / Service</div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-[117.58px] text-right">Unit Cost</div>
+                    <div className="w-[49.92px] text-right">Qty</div>
+                    <div className="w-[82.51px] text-right">Amount</div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
+                <div className="flex flex-col gap-6 text-[12px] text-[#787c7d]">
+                  {items.map((item) => {
+                    const description = item.description || item.name;
+                    const amount = item.total ?? item.unitPrice * item.quantity;
+                    return (
+                      <div key={item.id} className="flex items-start gap-3">
+                        <div className="flex-1">{description}</div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-[117.58px] text-right tracking-[0.2px]">
+                            {formatNumber(item.unitPrice)}
+                          </div>
+                          <div className="w-[49.92px] text-right">
+                            {formatNumber(item.quantity, 0)}
+                          </div>
+                          <div className="w-[82.51px] text-right tracking-[0.2px]">
+                            {formatNumber(amount)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-        <div className="ml-auto flex w-[247px] flex-col gap-3">
-          <div className="h-px w-full bg-[#e5e7eb]" />
-          <div className="flex flex-col gap-2 text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
-            <div className="flex items-center justify-between">
-              <span>Subtotal</span>
-              <div className="flex items-center gap-1">
-                <span>{currency.symbol}</span>
-                <span className="text-[12px] text-[#787c7d] tracking-[0.2px] font-['Google_Sans',sans-serif]">
-                  {formatNumber(subtotal)}
+              <div className="flex w-[247px] flex-col items-end gap-3">
+                <div className="flex w-full flex-col items-start gap-2">
+                  <div className="flex w-full items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                    <div>Subtotal</div>
+                    <div className="flex items-center gap-1">
+                      <div>{currency.symbol}</div>
+                      <div className="text-right text-[12px] text-[#787c7d] tracking-[0.2px] font-['Google_Sans',sans-serif]">
+                        {formatNumber(subtotal)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex w-full items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                    <div>Discount (2%)</div>
+                    <div className="flex items-center gap-1">
+                      <div>-{currency.symbol}</div>
+                      <div className="text-right text-[12px] text-[#787c7d] tracking-[0.2px] font-['Google_Sans',sans-serif]">
+                        {formatNumber(discountAmount)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex w-full items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                  <div>Total Due</div>
+                  <div className="flex items-center gap-1">
+                    <div className="text-[12px]">{currency.symbol}</div>
+                    <div className="text-right text-[16px] font-medium text-[#575757] tracking-[0.5px] font-['Google_Sans',sans-serif]">
+                      {formatNumber(totalDue)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex w-[377px] flex-col gap-4">
+            <div className="flex w-[247px] flex-col gap-1">
+              <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                Payment Details
+              </div>
+              <div className="flex items-start justify-between rounded-[20px] bg-[#f5f5f5] p-[12px]">
+                <div className="flex w-[174px] flex-col gap-0.5">
+                  <div className="text-[10px] font-medium text-[#434343] tracking-[0.2px]">
+                    {paymentLines.line1}
+                  </div>
+                  <div className="text-[10px] text-[#787c7d]">{paymentLines.line2}</div>
+                  <div className="text-[10px] text-[#787c7d]">{paymentLines.line3}</div>
+                </div>
+                <span className="material-symbols-rounded text-[12px] text-[#9599a0]">
+                  content_copy
                 </span>
               </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span>Discount (2%)</span>
-              <div className="flex items-center gap-1">
-                <span>-{currency.symbol}</span>
-                <span className="text-[12px] text-[#787c7d] tracking-[0.2px] font-['Google_Sans',sans-serif]">
-                  {formatNumber(discountAmount)}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="h-px w-full bg-[#e5e7eb]" />
-          <div className="flex items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
-            <span>Total Due</span>
-            <div className="flex items-center gap-1">
-              <span className="text-[12px]">{currency.symbol}</span>
-              <span className="text-[16px] font-medium text-[#575757] tracking-[0.5px] font-['Google_Sans',sans-serif]">
-                {formatNumber(totalDue)}
-              </span>
-            </div>
+            <div className="text-[10px] text-[#a4a4a4]">{refundPolicy}</div>
           </div>
         </div>
-      </div>
 
-      <div className="absolute bottom-[44px] left-[44px] flex w-[377px] flex-col gap-4">
-        <div className="flex w-[247px] flex-col gap-1">
-          <span className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
-            Payment Details
-          </span>
-          <div className="flex items-start justify-between rounded-[20px] bg-[#f5f5f5] p-[12px]">
-            <div className="flex flex-col gap-0.5 text-[10px] text-[#787c7d]">
-              <span className="text-[#434343] font-medium">{paymentLines.line1}</span>
-              <span>{paymentLines.line2}</span>
-              <span>{paymentLines.line3}</span>
-            </div>
-            <span className="material-symbols-rounded text-[12px] text-[#b2b2b2]">
-              content_copy
-            </span>
-          </div>
+        <div className="w-full text-right text-[10px] text-[#f0f0f0] font-['Google_Sans_Mono',monospace]">
+          risopo.com
         </div>
-        <p className="text-[10px] text-[#a4a4a4]">{refundPolicy}</p>
       </div>
-
-      <span className="absolute bottom-[44px] right-[44px] text-[10px] text-[#f0f0f0] font-['Google_Sans_Mono',monospace]">
-        risopo.com
-      </span>
     </div>
   );
 };

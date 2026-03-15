@@ -6,6 +6,7 @@ import { InvoiceRecord } from '../types/invoice';
 import { useDexieReady } from '../hooks/useDexieReady';
 import { InvoiceCard } from '../components/InvoiceCard';
 import { EmptyState } from '../components/EmptyState';
+import { TextInput } from '../components/FormFields';
 
 export const InvoicesPage: React.FC = () => {
   const ready = useDexieReady();
@@ -73,14 +74,11 @@ export const InvoicesPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center">
-        <label className="flex h-14 w-full items-center gap-2 rounded-[22px] border border-transparent bg-white px-[24px] text-sm focus-within:border-[var(--brand-blue)]">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search invoices"
-            className="w-full bg-transparent text-[16px] font-normal leading-[1.2] text-ink placeholder:text-[#a4a7ae] focus:outline-none font-['Google_Sans',sans-serif]"
-          />
-        </label>
+        <TextInput
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search invoices"
+        />
       </div>
 
       <section className="space-y-6">

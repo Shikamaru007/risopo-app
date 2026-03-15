@@ -74,7 +74,7 @@ export const DashboardPage: React.FC = () => {
         )}
       </section>
 
-      <Fab />
+      <Fab to="/builder" />
     </div>
   );
 };
