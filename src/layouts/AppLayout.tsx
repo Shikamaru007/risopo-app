@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { navItems, NavIconName } from '../utils/nav';
+import risopoLogo from '../assets/risopo.svg';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -23,11 +24,36 @@ const NavIcon: React.FC<{ name: NavIconName; active: boolean }> = ({ name, activ
   );
 };
 
+const DesktopNav: React.FC = () => {
+  const { pathname } = useLocation();
+  return (
+    <nav className="hidden md:flex md:fixed md:top-1/2 md:left-8 md:-translate-y-1/2 z-40">
+      <div className="flex flex-col items-center gap-2 rounded-[24px] border border-[#E9EBE9] bg-white/90 p-2 shadow-soft backdrop-blur">
+        {navItems.map((item) => {
+          const active = pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              aria-label={item.label}
+              className="group"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/60 transition-colors duration-200">
+                <NavIcon name={item.icon} active={active} />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+};
+
 const BottomNav: React.FC = () => {
   const { pathname } = useLocation();
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E9EBE9] bg-white"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E9EBE9] bg-white md:hidden"
       style={{
         paddingTop: '8px',
         paddingLeft: '24px',
@@ -96,6 +122,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   return (
     <div className="relative min-h-screen bg-surface text-ink">
+      <DesktopNav />
       <div className="flex-1">
         <header className="sticky top-0 z-30">
           <div
@@ -106,24 +133,29 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             }`}
           >
             <div className="flex items-center gap-3">
-              {showLogo ? (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/20 text-sm font-semibold text-ink/80">
-                  R
-                </div>
-              ) : (
-                <span className="text-2xl font-bold text-ink">{headerTitle}</span>
-              )}
+                {showLogo ? (
+                  <img src={risopoLogo} alt="Risopo" className="h-8 w-8" />
+                ) : (
+                  <span className="text-2xl font-bold text-ink">{headerTitle}</span>
+                )}
             </div>
-            <div className="flex items-center text-gray-700">
+            <div className="flex items-center gap-2 text-gray-700">
               <button
                 aria-label="Toggle theme"
                 onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
               >
                 <span className="icon material-symbols-rounded text-[20px]">
                   {theme === 'dark' ? 'light_mode' : 'dark_mode'}
                 </span>
               </button>
+              <Link
+                to="/builder"
+                className="hidden md:inline-flex items-center gap-2 rounded-full bg-[var(--brand-blue)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] active:bg-[var(--brand-blue-pressed)] md:px-5 md:py-[10px]"
+              >
+                <span className="icon material-symbols-rounded text-[18px]">add</span>
+                New Invoice
+              </Link>
             </div>
           </div>
         </header>
