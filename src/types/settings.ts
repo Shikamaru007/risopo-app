@@ -54,4 +54,5 @@ export interface SettingsRecord extends BusinessProfile {
   id?: number;
   paymentMethods?: PaymentMethod[];
   defaultTaxRate?: number;
+  updatedAt?: string;
 }

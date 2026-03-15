@@ -7,6 +7,7 @@ import { useDexieReady } from '../hooks/useDexieReady';
 import { getSettings } from '../db/settings';
 import { SettingsRecord, PaymentMethod as SettingsPaymentMethod } from '../types/settings';
 import { getAsset } from '../db/assets';
+import { readLogoCache, readSettingsCache } from '../utils/settingsCache';
 
 const buildSeedInvoice = (): InvoiceRecord => {
   const id = crypto.randomUUID ? crypto.randomUUID() : `inv-${Date.now()}`;
@@ -97,9 +98,35 @@ export const InvoiceGeneratedPage: React.FC = () => {
 
   useEffect(() => {
     if (!ready) return;
-    getSettings()
-      .then((result) => setSettings(result ?? null))
-      .catch(() => setSettings(null));
+    let cancelled = false;
+    const loadSettings = () => {
+      getSettings()
+        .then((result) => {
+          if (cancelled) return;
+          if (result) {
+            setSettings(result);
+            return;
+          }
+          const cached = readSettingsCache();
+          if (cached?.data) setSettings(cached.data);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          const cached = readSettingsCache();
+          if (cached?.data) {
+            setSettings(cached.data);
+          } else {
+            setSettings(null);
+          }
+        });
+    };
+    loadSettings();
+    const handleSettingsUpdated = () => loadSettings();
+    window.addEventListener('settings-updated', handleSettingsUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('settings-updated', handleSettingsUpdated);
+    };
   }, [ready]);
 
   useEffect(() => {
@@ -108,8 +135,14 @@ export const InvoiceGeneratedPage: React.FC = () => {
       return;
     }
     getAsset(settings.logoId)
-      .then((asset) => setLogoUrl(asset?.dataUrl ?? null))
-      .catch(() => setLogoUrl(null));
+      .then((asset) => {
+        const cachedLogo = readLogoCache(settings.logoId);
+        setLogoUrl(asset?.dataUrl ?? cachedLogo ?? null);
+      })
+      .catch(() => {
+        const cachedLogo = readLogoCache(settings.logoId);
+        setLogoUrl(cachedLogo ?? null);
+      });
   }, [ready, settings?.logoId]);
 
   const selectedPaymentDetails = useMemo<SettingsPaymentMethod | undefined>(() => {

@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addAsset, getAsset } from '../db/assets';
+import { db } from '../db';
 import { getSettings, upsertSettings } from '../db/settings';
 import { PaymentMethod } from '../types/settings';
 import { SettingsRecord } from '../types/settings';
 import { useDexieReady } from '../hooks/useDexieReady';
-import { FieldLabel, SelectInput, TextInput, TextareaInput } from '../components/FormFields';
+import { FieldLabel, SelectInput, TextInput } from '../components/FormFields';
+import { clearLogoCache, readLogoCache, readSettingsCache, writeLogoCache, writeSettingsCache } from '../utils/settingsCache';
 
 type SettingsForm = {
   businessName: string;
@@ -12,7 +14,6 @@ type SettingsForm = {
   phone: string;
   businessAddress: string;
   defaultCurrency: string;
-  refundPolicy: string;
   paymentMethods: PaymentMethod[];
   logoId?: string;
 };
@@ -23,7 +24,6 @@ const emptyForm: SettingsForm = {
   phone: '',
   businessAddress: '',
   defaultCurrency: 'NGN',
-  refundPolicy: '',
   paymentMethods: []
 };
 
@@ -44,11 +44,25 @@ export const SettingsPage: React.FC = () => {
   const [linkSaveAttempts, setLinkSaveAttempts] = useState<string[]>([]);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const savingRef = useRef(false);
+  const pendingSaveRef = useRef<SettingsRecord | null>(null);
+  const savingTimeoutMs = 2500;
+
+  const withTimeout = useCallback(
+    <T,>(promise: Promise<T>, timeoutMs = savingTimeoutMs) =>
+      Promise.race([
+        promise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs))
+      ]),
+    []
+  );
 
   useEffect(() => {
-    if (!ready) return;
-    getSettings().then((settings) => {
-      if (!settings) return;
+    let cancelled = false;
+    const applySettings = (settings: SettingsRecord, savedAt?: Date | null) => {
       setForm((prev) => ({
         ...prev,
         businessName: settings.businessName || '',
@@ -56,21 +70,72 @@ export const SettingsPage: React.FC = () => {
         phone: settings.phone || '',
         businessAddress: settings.businessAddress || '',
         defaultCurrency: settings.defaultCurrency || 'NGN',
-        refundPolicy: settings.refundPolicy || '',
         paymentMethods: settings.paymentMethods || [],
         logoId: settings.logoId
       }));
+      if (savedAt) {
+        const savedAtMs = savedAt.getTime();
+        setLastSavedAt((prev) => (prev === savedAtMs ? prev : savedAtMs));
+      }
       setDraftMethods([]);
       setCryptoSaveAttempts([]);
       setBankSaveAttempts([]);
       setLinkSaveAttempts([]);
       if (settings.logoId) {
         getAsset(settings.logoId).then((asset) => {
-          if (asset?.dataUrl) setLogoPreview(asset.dataUrl);
+          if (cancelled) return;
+          const cachedLogo = readLogoCache(settings.logoId);
+          if (asset?.dataUrl) {
+            setLogoPreview(asset.dataUrl);
+            return;
+          }
+          if (cachedLogo) {
+            setLogoPreview(cachedLogo);
+          }
         });
+      } else {
+        setLogoPreview(null);
       }
-    });
-  }, [ready]);
+    };
+
+    const cached = readSettingsCache();
+    if (cached?.data) {
+      applySettings(cached.data, cached.savedAt);
+    }
+
+    if (ready) {
+      getSettings()
+        .then((settings) => {
+          if (cancelled) return;
+          if (settings) {
+            const cachedTime = cached?.savedAt?.getTime() ?? 0;
+            const dbTime = settings.updatedAt
+              ? new Date(settings.updatedAt).getTime()
+              : 0;
+            if (cached?.data && cachedTime >= dbTime) {
+              applySettings(cached.data, cached.savedAt);
+              void withTimeout(upsertSettings(cached.data), savingTimeoutMs);
+              return;
+            }
+            applySettings(settings, settings.updatedAt ? new Date(settings.updatedAt) : null);
+            if (dbTime && (!cached?.savedAt || dbTime > cachedTime)) {
+              writeSettingsCache(settings, new Date(settings.updatedAt as string));
+            }
+            return;
+          }
+          if (cached?.data) {
+            void withTimeout(upsertSettings(cached.data), savingTimeoutMs);
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+        });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, withTimeout]);
 
   const updateField = useCallback(<K extends keyof SettingsForm>(key: K, value: SettingsForm[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -156,6 +221,74 @@ export const SettingsPage: React.FC = () => {
     }));
   }, []);
 
+  const buildPayload = useCallback(
+    (nextForm: SettingsForm, savedAt: Date): SettingsRecord => ({
+      businessName: nextForm.businessName,
+      businessEmail: nextForm.businessEmail,
+      businessAddress: nextForm.businessAddress,
+      phone: nextForm.phone,
+      defaultCurrency: nextForm.defaultCurrency,
+      paymentMethods: nextForm.paymentMethods,
+      logoId: nextForm.logoId,
+      updatedAt: savedAt.toISOString()
+    }),
+    []
+  );
+
+  const runSave = useCallback(
+    async (payload: SettingsRecord, savedAt: Date) => {
+      if (savingRef.current) {
+        pendingSaveRef.current = payload;
+        return;
+      }
+      savingRef.current = true;
+      setSaving(true);
+      try {
+        writeSettingsCache(payload, savedAt);
+        setLastSavedAt(savedAt.getTime());
+        setShowSaved(true);
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        saveTimeoutRef.current = setTimeout(() => setShowSaved(false), 2400);
+
+        try {
+          window.dispatchEvent(new CustomEvent('settings-updated'));
+        } catch {
+          // ignore dispatch failures
+        }
+
+        if (!ready) {
+          await withTimeout(db.open(), savingTimeoutMs);
+        }
+
+        const savePromise = upsertSettings(payload);
+        const saveResult = await withTimeout(savePromise, savingTimeoutMs);
+        if (saveResult === null) {
+          void savePromise.catch(() => null);
+        } else {
+          try {
+            const persisted = await withTimeout(getSettings(), savingTimeoutMs);
+            if (persisted && persisted.updatedAt) {
+              writeSettingsCache(persisted, new Date(persisted.updatedAt));
+            }
+          } catch {
+            // ignore verification failures
+          }
+        }
+      } finally {
+        setSaving(false);
+        savingRef.current = false;
+        if (pendingSaveRef.current) {
+          const next = pendingSaveRef.current;
+          pendingSaveRef.current = null;
+          await runSave(next, new Date());
+        }
+      }
+    },
+    [ready, withTimeout]
+  );
+
   const handleLogoUpload = useCallback(async (file?: File | null) => {
     if (!file) return;
     const reader = new FileReader();
@@ -163,33 +296,46 @@ export const SettingsPage: React.FC = () => {
       const dataUrl = typeof reader.result === 'string' ? reader.result : '';
       if (!dataUrl) return;
       const id = crypto.randomUUID ? crypto.randomUUID() : `logo-${Date.now()}`;
-      await addAsset({
-        id,
-        name: file.name,
-        dataUrl,
-        createdAt: new Date().toISOString()
-      });
       setLogoPreview(dataUrl);
       setForm((prev) => ({ ...prev, logoId: id }));
+      writeLogoCache(id, dataUrl);
+      try {
+        await withTimeout(
+          addAsset({
+            id,
+            name: file.name,
+            dataUrl,
+            createdAt: new Date().toISOString()
+          }),
+          savingTimeoutMs
+        );
+      } catch {
+        // ignore asset save failures
+      }
+      const savedAt = new Date();
+      const nextForm: SettingsForm = {
+        ...form,
+        logoId: id
+      };
+      const payload = buildPayload(nextForm, savedAt);
+      await runSave(payload, savedAt);
     };
     reader.readAsDataURL(file);
-  }, []);
+  }, [buildPayload, form, runSave, withTimeout]);
 
   const handleSave = useCallback(async () => {
-    setSaving(true);
-    const payload: SettingsRecord = {
-      businessName: form.businessName,
-      businessEmail: form.businessEmail,
-      businessAddress: form.businessAddress,
-      phone: form.phone,
-      defaultCurrency: form.defaultCurrency,
-      refundPolicy: form.refundPolicy,
-      paymentMethods: form.paymentMethods,
-      logoId: form.logoId
+    const savedAt = new Date();
+    const payload = buildPayload(form, savedAt);
+    await runSave(payload, savedAt);
+  }, [buildPayload, form, runSave]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
     };
-    await upsertSettings(payload);
-    setSaving(false);
-  }, [form]);
+  }, []);
 
   const methodsByType = useMemo(() => {
     return {
@@ -207,6 +353,14 @@ export const SettingsPage: React.FC = () => {
     };
   }, [draftMethods]);
 
+  const savedTimeLabel = useMemo(() => {
+    if (!lastSavedAt) return '';
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(lastSavedAt));
+  }, [lastSavedAt]);
+
   return (
     <div className="space-y-4">
       <section className="card space-y-4 rounded-[24px] p-6 shadow-none">
@@ -215,7 +369,7 @@ export const SettingsPage: React.FC = () => {
           <p className="text-sm text-slate-500">Upload a logo to appear on generated invoices.</p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white text-slate-400">
+          <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white text-slate-400">
             {logoPreview ? (
               <img
                 alt="Logo preview"
@@ -224,6 +378,27 @@ export const SettingsPage: React.FC = () => {
               />
             ) : (
               <span className="icon material-symbols-rounded text-[20px]">image</span>
+            )}
+            {logoPreview && (
+              <button
+                type="button"
+                aria-label="Remove logo"
+                onClick={() => {
+                  setLogoPreview(null);
+                  setForm((prev) => ({ ...prev, logoId: undefined }));
+                  clearLogoCache();
+                  const savedAt = new Date();
+                  const nextForm: SettingsForm = {
+                    ...form,
+                    logoId: undefined
+                  };
+                  const payload = buildPayload(nextForm, savedAt);
+                  void runSave(payload, savedAt);
+                }}
+                className="absolute -right-2 -top-2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white bg-white text-slate-500 shadow-sm transition-colors hover:text-red-500"
+              >
+                <span className="icon material-symbols-rounded text-[14px]">close</span>
+              </button>
             )}
           </div>
           <label className="inline-flex items-center gap-2 rounded-full bg-[rgba(15,76,172,0.08)] px-5 py-2.5 text-sm font-semibold text-[var(--brand-blue)]">
@@ -639,27 +814,28 @@ export const SettingsPage: React.FC = () => {
         </div>
       </section>
 
-      <section className="card space-y-4 rounded-[24px] p-6 shadow-none">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold text-ink">Refund policy</h3>
-          <p className="text-sm text-slate-500">
-            Provide a short policy. AI will expand this for invoices.
-          </p>
+      <div className="flex items-center justify-between">
+        <div
+          className={`rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600 transition-opacity ${
+            showSaved ? 'opacity-100' : 'opacity-0'
+          }`}
+          aria-live="polite"
+        >
+          Saved {savedTimeLabel ? `at ${savedTimeLabel}` : ''}
         </div>
-        <TextareaInput
-          rows={4}
-          value={form.refundPolicy}
-          onChange={(event) => updateField('refundPolicy', event.target.value)}
-        />
-      </section>
-
-      <div className="flex justify-end">
         <button
           type="button"
           onClick={handleSave}
-          className="rounded-full bg-[var(--brand-blue)] px-5 py-2.5 text-sm font-semibold text-white shadow-none md:hover:bg-[var(--brand-blue-dark)]"
+          disabled={saving}
+          className="rounded-full bg-[var(--brand-blue)] px-5 py-2.5 text-sm font-semibold text-white shadow-none transition-colors md:hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {saving ? 'Saving…' : 'Save settings'}
+          {saving ? (
+            <span className="inline-flex h-5 w-5 items-center justify-center">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            </span>
+          ) : (
+            'Save settings'
+          )}
         </button>
       </div>
     </div>

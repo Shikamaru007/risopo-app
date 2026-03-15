@@ -1,6 +1,6 @@
 import React from 'react';
 import risopoLogo from '../assets/risopo.svg';
-import { InvoiceItem, InvoiceRecord, PaymentMethodType } from '../types/invoice';
+import { InvoiceItem, InvoiceRecord } from '../types/invoice';
 import { BusinessProfile, PaymentMethod } from '../types/settings';
 
 const fallbackItems: InvoiceItem[] = [
@@ -39,24 +39,11 @@ const fallbackTo = {
   phone: '+1 7812 2211'
 };
 
-const fallbackPayments: Record<PaymentMethodType, { line1: string; line2: string; line3: string }> =
-  {
-    bank: {
-      line1: '0171457329',
-      line2: 'Gtbank',
-      line3: 'Michael Boluwatife Onafowokan'
-    },
-    crypto: {
-      line1: '0x4d9f...9b2a',
-      line2: 'Ethereum (ERC-20)',
-      line3: 'Risopo Treasury'
-    },
-    link: {
-      line1: 'https://pay.risopo.com/invoice',
-      line2: 'Default checkout link',
-      line3: 'Payment link'
-    }
-  };
+type PaymentLines = {
+  line1: string;
+  line2: string;
+  line3?: string;
+};
 
 const formatDate = (value: string | undefined, fallback: string) => {
   if (!value) return fallback;
@@ -90,11 +77,8 @@ const currencyMeta = (currency: string) => {
   }
 };
 
-const resolvePaymentLines = (
-  paymentMethod?: PaymentMethod,
-  fallbackType: PaymentMethodType = 'bank'
-) => {
-  if (!paymentMethod) return fallbackPayments[fallbackType];
+const resolvePaymentLines = (paymentMethod?: PaymentMethod): PaymentLines | null => {
+  if (!paymentMethod) return null;
   if (paymentMethod.type === 'bank') {
     return {
       line1: paymentMethod.accountNumber,
@@ -111,8 +95,7 @@ const resolvePaymentLines = (
   }
   return {
     line1: paymentMethod.url,
-    line2: paymentMethod.label,
-    line3: 'Payment link'
+    line2: paymentMethod.label
   };
 };
 
@@ -155,7 +138,8 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
     typeof invoice?.total === 'number' ? invoice.total : Math.max(subtotal - discountAmount, 0);
   const currencyCode = invoice?.currency || profile?.defaultCurrency || 'NGN';
   const currency = currencyMeta(currencyCode);
-  const paymentLines = resolvePaymentLines(paymentMethod, invoice?.paymentMethod ?? 'bank');
+  const paymentLines = resolvePaymentLines(paymentMethod);
+  const showPaymentSkeleton = !paymentLines;
 
   const fromNameValue = profile?.businessName?.trim() || (showSkeleton ? '' : fallbackFrom.name);
   const fromEmailValue = profile?.businessEmail?.trim() || (showSkeleton ? '' : fallbackFrom.email);
@@ -436,15 +420,31 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
               </div>
               <div className="flex items-start justify-between rounded-[20px] bg-[#f5f5f5] p-[12px]">
                 <div className="flex w-[174px] flex-col gap-0.5">
-                  <div className="text-[10px] font-medium text-[#434343] tracking-[0.2px]">
-                    {paymentLines.line1}
-                  </div>
-                  <div className="text-[10px] text-[#787c7d]">{paymentLines.line2}</div>
-                  <div className="text-[10px] text-[#787c7d]">{paymentLines.line3}</div>
+                  {showPaymentSkeleton ? (
+                    <>
+                      <SkeletonLine width="140px" height="10px" className="animate-pulse" />
+                      <SkeletonLine width="110px" height="10px" className="animate-pulse" />
+                      <SkeletonLine width="120px" height="10px" className="animate-pulse" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-[10px] font-medium text-[#434343] tracking-[0.2px]">
+                        {paymentLines.line1 || '—'}
+                      </div>
+                      <div className="text-[10px] text-[#787c7d]">
+                        {paymentLines.line2 || '—'}
+                      </div>
+                      {paymentLines.line3 ? (
+                        <div className="text-[10px] text-[#787c7d]">{paymentLines.line3}</div>
+                      ) : null}
+                    </>
+                  )}
                 </div>
-                <span className="material-symbols-rounded text-[12px] text-[#9599a0]">
-                  content_copy
-                </span>
+                {!showPaymentSkeleton && (
+                  <span className="material-symbols-rounded text-[12px] text-[#9599a0]">
+                    content_copy
+                  </span>
+                )}
               </div>
             </div>
             {(refundPolicy || (showSkeleton && rawNotes !== undefined)) && (

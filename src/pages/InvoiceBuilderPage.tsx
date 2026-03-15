@@ -9,6 +9,7 @@ import { useDexieReady } from '../hooks/useDexieReady';
 import { getSettings } from '../db/settings';
 import { SettingsRecord, PaymentMethod as SettingsPaymentMethod } from '../types/settings';
 import { getAsset } from '../db/assets';
+import { readLogoCache, readSettingsCache } from '../utils/settingsCache';
 
 type BuilderStepId = 'client' | 'items' | 'payment';
 
@@ -105,6 +106,7 @@ const StepPanel: React.FC<{
   totalDue: number;
   currencySymbol: string;
   paymentMethod: 'bank' | 'crypto' | 'link';
+  selectedPaymentDetails?: SettingsPaymentMethod;
   onPaymentMethodChange: (value: 'bank' | 'crypto' | 'link') => void;
   notes: string;
   onNotesChange: (value: string) => void;
@@ -129,6 +131,7 @@ const StepPanel: React.FC<{
   totalDue,
   currencySymbol,
   paymentMethod,
+  selectedPaymentDetails,
   onPaymentMethodChange,
   notes,
   onNotesChange,
@@ -141,6 +144,27 @@ const StepPanel: React.FC<{
   discountPercentValue,
   discountAmountValue
 }) => {
+  const paymentDetails =
+    selectedPaymentDetails?.type === paymentMethod ? selectedPaymentDetails : undefined;
+
+  const PaymentDetailsSkeleton = () => (
+    <div className="space-y-2">
+      <div className="h-3 w-32 rounded-full bg-slate-200 animate-pulse" />
+      <div className="h-3 w-24 rounded-full bg-slate-200 animate-pulse" />
+      <div className="h-3 w-36 rounded-full bg-slate-200 animate-pulse" />
+      <div className="text-[11px] text-slate-400">
+        Add a payment method in{' '}
+        <a
+          href="/settings"
+          className="font-medium text-[var(--brand-blue)] underline underline-offset-2 transition-colors hover:text-[var(--brand-blue-dark)]"
+        >
+          Settings
+        </a>{' '}
+        to preview details.
+      </div>
+    </div>
+  );
+
   if (stepId === 'client') {
     return (
       <div className="space-y-3">
@@ -163,12 +187,6 @@ const StepPanel: React.FC<{
             placeholder="+234 000 0000"
             value={clientPhone}
             onChange={(event) => onClientPhoneChange(sanitizePhoneInput(event.target.value))}
-          />
-          <LabeledInput
-            label="Company / Address"
-            placeholder="Optional details"
-            value={client.address}
-            onChange={(event) => onClientChange('address', event.target.value)}
           />
         </div>
       </div>
@@ -262,9 +280,21 @@ const StepPanel: React.FC<{
                   <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
                     Bank transfer
                   </div>
-                  <div className="text-sm font-semibold text-ink">0171457329</div>
-                  <div className="text-xs text-slate-500">Gtbank</div>
-                  <div className="text-xs text-slate-500">Michael Boluwatife Onafowokan</div>
+                  {paymentDetails && paymentDetails.type === 'bank' ? (
+                    <>
+                      <div className="text-sm font-semibold text-ink">
+                        {paymentDetails.accountNumber || '—'}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {paymentDetails.bankName || '—'}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {paymentDetails.accountName || '—'}
+                      </div>
+                    </>
+                  ) : (
+                    <PaymentDetailsSkeleton />
+                  )}
                 </div>
               )}
               {paymentMethod === 'crypto' && (
@@ -272,9 +302,21 @@ const StepPanel: React.FC<{
                   <div className="text-xs uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
                     Crypto wallet
                   </div>
-                  <div className="text-sm font-semibold text-ink">0x4d9f...9b2a</div>
-                  <div className="text-xs text-slate-500">Ethereum (ERC-20)</div>
-                  <div className="text-xs text-slate-500">Risopo Treasury</div>
+                  {paymentDetails && paymentDetails.type === 'crypto' ? (
+                    <>
+                      <div className="text-sm font-semibold text-ink">
+                        {paymentDetails.walletAddress || '—'}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {paymentDetails.network || '—'}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {paymentDetails.label || '—'}
+                      </div>
+                    </>
+                  ) : (
+                    <PaymentDetailsSkeleton />
+                  )}
                 </div>
               )}
               {paymentMethod === 'link' && (
@@ -282,8 +324,18 @@ const StepPanel: React.FC<{
                   <div className="text-xs uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
                     Payment link
                   </div>
-                  <div className="text-sm font-semibold text-ink">https://pay.risopo.com/invoice</div>
-                  <div className="text-xs text-slate-500">Default checkout link</div>
+                  {paymentDetails && paymentDetails.type === 'link' ? (
+                    <>
+                      <div className="text-sm font-semibold text-ink">
+                        {paymentDetails.url || '—'}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {paymentDetails.label || '—'}
+                      </div>
+                    </>
+                  ) : (
+                    <PaymentDetailsSkeleton />
+                  )}
                 </div>
               )}
             </div>
@@ -378,6 +430,7 @@ export const InvoiceBuilderPage: React.FC = () => {
   const [items, setItems] = useState<InvoiceItemDraft[]>([
     { id: 'item-0', name: '', quantity: '', price: '' }
   ]);
+  const itemDraftStorageKey = 'invoiceBuilderDraftItems';
   const totalSteps = builderSteps.length;
   const stepOrder = useMemo(() => builderSteps.map((step) => step.id), []);
   const stepParam = searchParams.get('step') || stepOrder[0];
@@ -562,10 +615,65 @@ export const InvoiceBuilderPage: React.FC = () => {
   }, [searchParams, setSearchParams, stepOrder]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = window.sessionStorage.getItem(itemDraftStorageKey);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as InvoiceItemDraft[];
+      if (!Array.isArray(parsed) || parsed.length === 0) return;
+      setItems(
+        parsed.map((item, index) => ({
+          id: item.id || `item-${index}`,
+          name: item.name ?? '',
+          quantity: item.quantity ?? '',
+          price: item.price ?? ''
+        }))
+      );
+    } catch {
+      // ignore malformed session storage
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.sessionStorage.setItem(itemDraftStorageKey, JSON.stringify(items));
+    } catch {
+      // ignore storage failures
+    }
+  }, [items]);
+
+  useEffect(() => {
     if (!ready) return;
-    getSettings()
-      .then((result) => setSettings(result ?? null))
-      .catch(() => setSettings(null));
+    let cancelled = false;
+    const loadSettings = () => {
+      getSettings()
+        .then((result) => {
+          if (cancelled) return;
+          if (result) {
+            setSettings(result);
+            return;
+          }
+          const cached = readSettingsCache();
+          if (cached?.data) setSettings(cached.data);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          const cached = readSettingsCache();
+          if (cached?.data) {
+            setSettings(cached.data);
+          } else {
+            setSettings(null);
+          }
+        });
+    };
+    loadSettings();
+    const handleSettingsUpdated = () => loadSettings();
+    window.addEventListener('settings-updated', handleSettingsUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('settings-updated', handleSettingsUpdated);
+    };
   }, [ready]);
 
   useEffect(() => {
@@ -574,8 +682,14 @@ export const InvoiceBuilderPage: React.FC = () => {
       return;
     }
     getAsset(settings.logoId)
-      .then((asset) => setLogoUrl(asset?.dataUrl ?? null))
-      .catch(() => setLogoUrl(null));
+      .then((asset) => {
+        const cachedLogo = readLogoCache(settings.logoId);
+        setLogoUrl(asset?.dataUrl ?? cachedLogo ?? null);
+      })
+      .catch(() => {
+        const cachedLogo = readLogoCache(settings.logoId);
+        setLogoUrl(cachedLogo ?? null);
+      });
   }, [ready, settings?.logoId]);
 
   const selectedPaymentDetails = useMemo<SettingsPaymentMethod | undefined>(() => {
@@ -612,8 +726,12 @@ export const InvoiceBuilderPage: React.FC = () => {
                   <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
                     Client
                   </div>
-                  <div className="text-sm font-semibold text-ink">John Doe</div>
-                  <div className="text-xs text-slate-500">anonymous@test.com</div>
+                  <div className="text-sm font-semibold text-ink">
+                    {client.name.trim() || 'Client name'}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {client.email.trim() || 'No email provided'}
+                  </div>
                 </div>
                 {stepIndex === 1 ? (
                   <div className="w-[96px]">
@@ -653,6 +771,7 @@ export const InvoiceBuilderPage: React.FC = () => {
                 totalDue={totalDue}
                 currencySymbol={currencySymbol}
                 paymentMethod={paymentMethod}
+                selectedPaymentDetails={selectedPaymentDetails}
                 onPaymentMethodChange={setPaymentMethod}
                 notes={notes}
                 onNotesChange={setNotes}
