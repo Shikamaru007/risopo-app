@@ -6,6 +6,7 @@ import { InvoicesPage } from './pages/InvoicesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { InvoiceBuilderPage } from './pages/InvoiceBuilderPage';
 import { InvoicePreviewPage } from './pages/InvoicePreviewPage';
+import { InvoiceGeneratedPage } from './pages/InvoiceGeneratedPage';
 
 const App: React.FC = () => (
   <AppLayout>
@@ -16,6 +17,7 @@ const App: React.FC = () => (
       <Route path="/invoices/:id" element={<InvoicePreviewPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/builder" element={<InvoiceBuilderPage />} />
+      <Route path="/builder/preview" element={<InvoiceGeneratedPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   </AppLayout>

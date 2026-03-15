@@ -1,16 +1,52 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { InvoicePdfPreview } from '../components/InvoicePdfPreview';
+import { PdfPreviewFrame } from '../components/PdfPreviewFrame';
 import { CurrencySelector } from '../components/CurrencySelector';
-import { FieldLabel, SelectInput, TextInput, TextareaInput } from '../components/FormFields';
+import { PaymentMethodSelector } from '../components/PaymentMethodSelector';
+import { FieldLabel, TextInput, TextareaInput } from '../components/FormFields';
+import { useDexieReady } from '../hooks/useDexieReady';
+import { getSettings } from '../db/settings';
+import { SettingsRecord, PaymentMethod as SettingsPaymentMethod } from '../types/settings';
+import { getAsset } from '../db/assets';
 
-type BuilderStepId = 'client' | 'items' | 'payment' | 'review';
+type BuilderStepId = 'client' | 'items' | 'payment';
 
 interface BuilderStep {
   id: BuilderStepId;
   title: string;
   subtitle: string;
 }
+
+interface InvoiceItemDraft {
+  id: string;
+  name: string;
+  quantity: string;
+  price: string;
+}
+
+interface ClientDraft {
+  name: string;
+  email: string;
+  address: string;
+}
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const sanitizeDecimalInput = (value: string) => {
+  const cleaned = value.replace(/[^\d.]/g, '');
+  const [head, ...rest] = cleaned.split('.');
+  if (rest.length === 0) return head;
+  return `${head}.${rest.join('')}`;
+};
+
+const sanitizePhoneInput = (value: string) => {
+  const cleaned = value.replace(/[^\d+]/g, '');
+  if (cleaned.startsWith('+')) {
+    return `+${cleaned.slice(1).replace(/\+/g, '')}`;
+  }
+  return cleaned.replace(/\+/g, '');
+};
 
 const builderSteps: BuilderStep[] = [
   {
@@ -25,13 +61,8 @@ const builderSteps: BuilderStep[] = [
   },
   {
     id: 'payment',
-    title: 'Payment Method, Notes / Refund policy',
+    title: 'Payment & Note',
     subtitle: 'Share how clients can pay and your terms.'
-  },
-  {
-    id: 'review',
-    title: 'Review',
-    subtitle: 'Confirm details before sending.'
   }
 ];
 
@@ -39,60 +70,106 @@ const LabeledInput: React.FC<{
   label: string;
   placeholder?: string;
   type?: string;
-}> = ({ label, placeholder, type = 'text' }) => (
+  value: string;
+  onChange: React.ChangeEventHandler<HTMLInputElement>;
+}> = ({ label, placeholder, type = 'text', value, onChange }) => (
   <label className="space-y-1.5 text-sm text-slate-500">
     <FieldLabel>{label}</FieldLabel>
-    <TextInput placeholder={placeholder} type={type} />
+    <TextInput placeholder={placeholder} type={type} value={value} onChange={onChange} />
   </label>
 );
 
-const LabeledSelect: React.FC<{ label: string; options: string[] }> = ({
-  label,
-  options
-}) => (
+const LabeledTextarea: React.FC<{
+  label: string;
+  placeholder?: string;
+  rows?: number;
+  value: string;
+  onChange: React.ChangeEventHandler<HTMLTextAreaElement>;
+}> = ({ label, placeholder, rows = 4, value, onChange }) => (
   <label className="space-y-1.5 text-sm text-slate-500">
     <FieldLabel>{label}</FieldLabel>
-    <div className="relative">
-      <SelectInput defaultValue={options[0]}>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </SelectInput>
-      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-        <span className="icon material-symbols-rounded text-[20px]">expand_more</span>
-      </span>
-    </div>
-  </label>
-);
-
-const LabeledTextarea: React.FC<{ label: string; placeholder?: string; rows?: number }> = ({
-  label,
-  placeholder,
-  rows = 4
-}) => (
-  <label className="space-y-1.5 text-sm text-slate-500">
-    <FieldLabel>{label}</FieldLabel>
-    <TextareaInput placeholder={placeholder} rows={rows} />
+    <TextareaInput placeholder={placeholder} rows={rows} value={value} onChange={onChange} />
   </label>
 );
 
 const StepPanel: React.FC<{
   stepId: BuilderStepId;
-  currency: 'NGN' | 'USD' | 'GBP' | 'EUR';
-  onCurrencyChange: (value: 'NGN' | 'USD' | 'GBP' | 'EUR') => void;
-}> = ({ stepId, currency, onCurrencyChange }) => {
-  const [itemRows, setItemRows] = useState<number[]>([0]);
-
+  client: ClientDraft;
+  clientPhone: string;
+  onClientChange: (field: keyof ClientDraft, value: string) => void;
+  onClientPhoneChange: (value: string) => void;
+  items: InvoiceItemDraft[];
+  onAddItem: () => void;
+  onRemoveItem: (id: string) => void;
+  onItemChange: (id: string, updates: Partial<InvoiceItemDraft>) => void;
+  totalDue: number;
+  currencySymbol: string;
+  paymentMethod: 'bank' | 'crypto' | 'link';
+  onPaymentMethodChange: (value: 'bank' | 'crypto' | 'link') => void;
+  notes: string;
+  onNotesChange: (value: string) => void;
+  includeNotes: boolean;
+  onIncludeNotesChange: (value: boolean) => void;
+  includeDiscount: boolean;
+  onIncludeDiscountChange: (value: boolean) => void;
+  discountAmount: string;
+  onDiscountAmountChange: (value: string) => void;
+  discountPercentValue: number;
+  discountAmountValue: number;
+}> = ({
+  stepId,
+  client,
+  clientPhone,
+  onClientChange,
+  onClientPhoneChange,
+  items,
+  onAddItem,
+  onRemoveItem,
+  onItemChange,
+  totalDue,
+  currencySymbol,
+  paymentMethod,
+  onPaymentMethodChange,
+  notes,
+  onNotesChange,
+  includeNotes,
+  onIncludeNotesChange,
+  includeDiscount,
+  onIncludeDiscountChange,
+  discountAmount,
+  onDiscountAmountChange,
+  discountPercentValue,
+  discountAmountValue
+}) => {
   if (stepId === 'client') {
     return (
       <div className="space-y-3">
         <div className="grid gap-3">
-          <LabeledInput label="Client name" placeholder="Client full name" />
-          <LabeledInput label="Email address" placeholder="client@email.com" type="email" />
-          <LabeledInput label="Phone number" placeholder="+234 000 0000" />
-          <LabeledInput label="Company / Address" placeholder="Optional details" />
+          <LabeledInput
+            label="Client name *"
+            placeholder="Client full name"
+            value={client.name}
+            onChange={(event) => onClientChange('name', event.target.value)}
+          />
+          <LabeledInput
+            label="Email address"
+            placeholder="client@email.com"
+            type="email"
+            value={client.email}
+            onChange={(event) => onClientChange('email', event.target.value)}
+          />
+          <LabeledInput
+            label="Phone number *"
+            placeholder="+234 000 0000"
+            value={clientPhone}
+            onChange={(event) => onClientPhoneChange(sanitizePhoneInput(event.target.value))}
+          />
+          <LabeledInput
+            label="Company / Address"
+            placeholder="Optional details"
+            value={client.address}
+            onChange={(event) => onClientChange('address', event.target.value)}
+          />
         </div>
       </div>
     );
@@ -102,8 +179,8 @@ const StepPanel: React.FC<{
     return (
       <div className="space-y-3">
         <div className="space-y-3">
-          {itemRows.map((row) => (
-            <div key={row} className="rounded-[22px] border border-slate-100 bg-white/80 p-3">
+          {items.map((item) => (
+            <div key={item.id} className="rounded-[22px] border border-slate-100 bg-white/80 p-3">
               <div className="flex items-center gap-1">
                 <div className="flex items-center text-slate-400">
                   <span className="icon material-symbols-rounded text-[16px]">
@@ -111,20 +188,42 @@ const StepPanel: React.FC<{
                   </span>
                 </div>
                 <div className="flex-1 space-y-3 pr-1">
-                  <TextInput placeholder="Item name" />
+                  <TextInput
+                    placeholder="Item name"
+                    value={item.name}
+                    onChange={(event) =>
+                      onItemChange(item.id, { name: event.target.value })
+                    }
+                  />
                   <div className="grid grid-cols-2 gap-3">
-                    <TextInput placeholder="Qty" />
-                    <TextInput placeholder="Price" />
+                    <TextInput
+                      placeholder="Qty"
+                      inputMode="numeric"
+                      value={item.quantity}
+                      onChange={(event) =>
+                        onItemChange(item.id, {
+                          quantity: sanitizeDecimalInput(event.target.value)
+                        })
+                      }
+                    />
+                    <TextInput
+                      placeholder="Price"
+                      inputMode="decimal"
+                      value={item.price}
+                      onChange={(event) =>
+                        onItemChange(item.id, {
+                          price: sanitizeDecimalInput(event.target.value)
+                        })
+                      }
+                    />
                   </div>
                 </div>
                 <button
                   type="button"
                   aria-label="Delete item"
-                  onClick={() =>
-                    setItemRows((prev) => prev.filter((itemId) => itemId !== row))
-                  }
+                  onClick={() => onRemoveItem(item.id)}
                   className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-red-400 transition-opacity ${
-                    itemRows.length > 1 ? 'opacity-100' : 'pointer-events-none opacity-0'
+                    items.length > 1 ? 'opacity-100' : 'pointer-events-none opacity-0'
                   }`}
                 >
                   <span className="icon material-symbols-rounded text-[18px]">delete</span>
@@ -135,7 +234,7 @@ const StepPanel: React.FC<{
         </div>
         <button
           type="button"
-          onClick={() => setItemRows((prev) => [...prev, prev.length])}
+          onClick={onAddItem}
           className="inline-flex w-full items-center justify-center gap-3 rounded-full border border-slate-100 bg-white/80 px-6 py-5 text-sm font-semibold text-slate-700"
         >
           Add Item
@@ -150,60 +249,242 @@ const StepPanel: React.FC<{
       <div className="space-y-3">
         <div className="rounded-[22px] border border-slate-100 bg-white/80 p-3">
           <div className="grid gap-3">
-            <LabeledSelect label="Payment method" options={['Bank transfer', 'Crypto', 'Link']} />
-            <label className="space-y-1.5 text-sm text-slate-500">
-              <FieldLabel>Currency</FieldLabel>
-              <CurrencySelector value={currency} onChange={onCurrencyChange} />
-            </label>
+            <div className="space-y-1.5 text-sm text-slate-500">
+              <FieldLabel>Payment method</FieldLabel>
+              <PaymentMethodSelector
+                value={paymentMethod}
+                onChange={onPaymentMethodChange}
+              />
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm text-slate-500">
+              {paymentMethod === 'bank' && (
+                <div className="space-y-1">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
+                    Bank transfer
+                  </div>
+                  <div className="text-sm font-semibold text-ink">0171457329</div>
+                  <div className="text-xs text-slate-500">Gtbank</div>
+                  <div className="text-xs text-slate-500">Michael Boluwatife Onafowokan</div>
+                </div>
+              )}
+              {paymentMethod === 'crypto' && (
+                <div className="space-y-1">
+                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
+                    Crypto wallet
+                  </div>
+                  <div className="text-sm font-semibold text-ink">0x4d9f...9b2a</div>
+                  <div className="text-xs text-slate-500">Ethereum (ERC-20)</div>
+                  <div className="text-xs text-slate-500">Risopo Treasury</div>
+                </div>
+              )}
+              {paymentMethod === 'link' && (
+                <div className="space-y-1">
+                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
+                    Payment link
+                  </div>
+                  <div className="text-sm font-semibold text-ink">https://pay.risopo.com/invoice</div>
+                  <div className="text-xs text-slate-500">Default checkout link</div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="rounded-[22px] border border-slate-100 bg-white/80 p-3">
-          <LabeledTextarea label="Payment notes" placeholder="Add optional payment notes" rows={3} />
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-500">
+            <span className="text-sm font-medium text-slate-600">Include discount</span>
+            <button
+              type="button"
+              onClick={() => onIncludeDiscountChange(!includeDiscount)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                includeDiscount ? 'bg-[var(--brand-blue)]' : 'bg-slate-200'
+              }`}
+              aria-pressed={includeDiscount}
+            >
+              <span
+                className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  includeDiscount ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          {includeDiscount && (
+            <div className="mt-3">
+              <label className="space-y-1.5 text-sm text-slate-500">
+                <FieldLabel>Discount amount</FieldLabel>
+                <TextInput
+                  placeholder="e.g. 5000"
+                  inputMode="decimal"
+                  value={discountAmount}
+                  onChange={(event) =>
+                    onDiscountAmountChange(sanitizeDecimalInput(event.target.value))
+                  }
+                />
+              </label>
+            </div>
+          )}
         </div>
         <div className="rounded-[22px] border border-slate-100 bg-white/80 p-3">
-          <LabeledTextarea label="Refund policy" placeholder="Define your refund policy" rows={3} />
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-500">
+            <span className="text-sm font-medium text-slate-600">
+              Include notes / refund policy
+            </span>
+            <button
+              type="button"
+              onClick={() => onIncludeNotesChange(!includeNotes)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                includeNotes ? 'bg-[var(--brand-blue)]' : 'bg-slate-200'
+              }`}
+              aria-pressed={includeNotes}
+            >
+              <span
+                className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  includeNotes ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          {includeNotes && (
+            <LabeledTextarea
+              label="Notes / Refund policy"
+              placeholder="Add optional notes or refund terms"
+              rows={4}
+              value={notes}
+              onChange={(event) => onNotesChange(event.target.value)}
+            />
+          )}
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-3">
-      <div className="rounded-[22px] border border-slate-100 bg-white/80 p-3">
-        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-          <span>Summary</span>
-          <span>4 Sections</span>
-        </div>
-        <div className="mt-3 space-y-3 text-sm text-slate-500">
-          {['Client Information', 'Invoice Items', 'Payment Details', 'Totals'].map((item) => (
-            <div key={item} className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <span>{item}</span>
-              <span className="text-xs uppercase tracking-[0.2em] text-slate-400">Review</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <button
-        type="button"
-        className="inline-flex w-full items-center justify-center rounded-2xl bg-[var(--brand-blue)] px-4 py-3 text-sm font-semibold text-white opacity-60"
-      >
-        Create invoice
-      </button>
-    </div>
-  );
+  return null;
 };
 
 export const InvoiceBuilderPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const ready = useDexieReady();
   const [currency, setCurrency] = useState<'NGN' | 'USD' | 'GBP' | 'EUR'>('NGN');
+  const [paymentMethod, setPaymentMethod] = useState<'bank' | 'crypto' | 'link'>('bank');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [client, setClient] = useState<ClientDraft>({ name: '', email: '', address: '' });
+  const [clientPhone, setClientPhone] = useState('');
+  const [notes, setNotes] = useState('');
+  const [includeNotes, setIncludeNotes] = useState(false);
+  const [includeDiscount, setIncludeDiscount] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [settings, setSettings] = useState<SettingsRecord | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [items, setItems] = useState<InvoiceItemDraft[]>([
+    { id: 'item-0', name: '', quantity: '', price: '' }
+  ]);
   const totalSteps = builderSteps.length;
   const stepOrder = useMemo(() => builderSteps.map((step) => step.id), []);
   const stepParam = searchParams.get('step') || stepOrder[0];
   const stepIndex = Math.max(0, stepOrder.indexOf(stepParam as BuilderStepId));
   const currentStep = builderSteps[stepIndex];
+  const isFinalStep = stepIndex === totalSteps - 1;
   const progress = useMemo(
     () => (totalSteps === 0 ? 0 : Math.round(((stepIndex + 1) / totalSteps) * 100)),
     [stepIndex, totalSteps]
+  );
+  const currencySymbol = useMemo(() => {
+    switch (currency) {
+      case 'USD':
+        return '$';
+      case 'GBP':
+        return '£';
+      case 'EUR':
+        return '€';
+      default:
+        return '₦';
+    }
+  }, [currency]);
+
+  const normalizedItems = useMemo(() => {
+    return items.map((item) => {
+      const qty = Number.parseFloat(item.quantity || '0');
+      const price = Number.parseFloat(item.price || '0');
+      const quantity = Number.isFinite(qty) ? qty : 0;
+      const unitPrice = Number.isFinite(price) ? price : 0;
+      const total = quantity * unitPrice;
+      return {
+        id: item.id,
+        name: item.name.trim(),
+        quantity,
+        unitPrice,
+        total
+      };
+    });
+  }, [items]);
+
+  const isEmailValid = useMemo(() => {
+    const value = client.email.trim();
+    return value.length === 0 || emailRegex.test(value);
+  }, [client.email]);
+
+  const isClientValid = useMemo(() => {
+    return client.name.trim().length > 0 && clientPhone.trim().length > 0 && isEmailValid;
+  }, [client.name, clientPhone, isEmailValid]);
+
+  const isItemsValid = useMemo(() => {
+    let hasComplete = false;
+    let hasPartial = false;
+    items.forEach((item) => {
+      const name = item.name.trim();
+      const qtyValue = Number.parseFloat(item.quantity || '0');
+      const priceValue = Number.parseFloat(item.price || '0');
+      const hasAnyInput =
+        name.length > 0 || item.quantity.trim().length > 0 || item.price.trim().length > 0;
+      const isComplete = name.length > 0 && qtyValue > 0 && priceValue > 0;
+      if (isComplete) hasComplete = true;
+      if (hasAnyInput && !isComplete) hasPartial = true;
+    });
+    return hasComplete && !hasPartial;
+  }, [items]);
+
+  const canProceed = useMemo(() => {
+    if (currentStep.id === 'client') return isClientValid;
+    if (currentStep.id === 'items') return isItemsValid;
+    return isClientValid && isItemsValid;
+  }, [currentStep.id, isClientValid, isItemsValid]);
+
+  const subtotal = useMemo(
+    () => normalizedItems.reduce((sum, item) => sum + item.total, 0),
+    [normalizedItems]
+  );
+
+  const discountAmountValue = useMemo(() => {
+    if (!includeDiscount) return 0;
+    const amount = Number.parseFloat(discountAmount || '0');
+    if (!Number.isFinite(amount)) return 0;
+    return Math.min(Math.max(amount, 0), subtotal);
+  }, [discountAmount, includeDiscount, subtotal]);
+
+  const discountPercentValue = useMemo(() => {
+    if (!includeDiscount || subtotal <= 0) return 0;
+    return Math.min(Math.max((discountAmountValue / subtotal) * 100, 0), 100);
+  }, [discountAmountValue, includeDiscount, subtotal]);
+
+  const totalDue = useMemo(
+    () => Math.max(subtotal - discountAmountValue, 0),
+    [discountAmountValue, subtotal]
+  );
+
+  const handleAddItem = useCallback(() => {
+    const id = crypto.randomUUID ? crypto.randomUUID() : `item-${Date.now()}`;
+    setItems((prev) => [...prev, { id, name: '', quantity: '', price: '' }]);
+  }, []);
+
+  const handleRemoveItem = useCallback((id: string) => {
+    setItems((prev) => (prev.length > 1 ? prev.filter((item) => item.id !== id) : prev));
+  }, []);
+
+  const handleItemChange = useCallback(
+    (id: string, updates: Partial<InvoiceItemDraft>) => {
+      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+    },
+    []
   );
 
   const goNext = useCallback(() => {
@@ -211,6 +492,62 @@ export const InvoiceBuilderPage: React.FC = () => {
     const next = stepOrder[nextIndex];
     setSearchParams({ step: next });
   }, [setSearchParams, stepIndex, stepOrder, totalSteps]);
+
+  const handleGenerate = useCallback(() => {
+    if (isGenerating || !isClientValid || !isItemsValid) return;
+    setIsGenerating(true);
+    const now = new Date();
+    const invoiceId = crypto.randomUUID ? crypto.randomUUID() : `inv-${Date.now()}`;
+    const invoiceNumber = `INV-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      '0'
+    )}${String(now.getDate()).padStart(2, '0')}`;
+    const invoiceRecord = {
+      id: invoiceId,
+      invoiceNumber,
+      status: 'pending' as const,
+      issueDate: now.toISOString(),
+      dueDate: now.toISOString(),
+      currency,
+      client: {
+        name: client.name.trim() || 'Unnamed client',
+        email: client.email.trim() || undefined,
+        address: client.address.trim() || undefined
+      },
+      items: normalizedItems,
+      subtotal,
+      tax: discountAmountValue,
+      total: totalDue,
+      paymentMethod,
+      notes: includeNotes ? notes.trim() || undefined : undefined,
+      refundPolicy: undefined,
+      createdAt: now.toISOString()
+    };
+    try {
+      window.sessionStorage.setItem('generatedInvoice', JSON.stringify(invoiceRecord));
+      window.sessionStorage.setItem('generatedClientPhone', clientPhone);
+    } catch {
+      // Ignore storage failures (e.g. private mode)
+    }
+    window.setTimeout(() => {
+      navigate('/builder/preview', { state: { invoice: invoiceRecord, clientPhone } });
+    }, 900);
+  }, [
+    client,
+    clientPhone,
+    currency,
+    isGenerating,
+    isClientValid,
+    isItemsValid,
+    navigate,
+    normalizedItems,
+    discountAmountValue,
+    includeNotes,
+    notes,
+    paymentMethod,
+    subtotal,
+    totalDue
+  ]);
 
   const goPrev = useCallback(() => {
     const prevIndex = Math.max(stepIndex - 1, 0);
@@ -223,6 +560,27 @@ export const InvoiceBuilderPage: React.FC = () => {
       setSearchParams({ step: stepOrder[0] }, { replace: true });
     }
   }, [searchParams, setSearchParams, stepOrder]);
+
+  useEffect(() => {
+    if (!ready) return;
+    getSettings()
+      .then((result) => setSettings(result ?? null))
+      .catch(() => setSettings(null));
+  }, [ready]);
+
+  useEffect(() => {
+    if (!ready || !settings?.logoId) {
+      setLogoUrl(null);
+      return;
+    }
+    getAsset(settings.logoId)
+      .then((asset) => setLogoUrl(asset?.dataUrl ?? null))
+      .catch(() => setLogoUrl(null));
+  }, [ready, settings?.logoId]);
+
+  const selectedPaymentDetails = useMemo<SettingsPaymentMethod | undefined>(() => {
+    return settings?.paymentMethods?.find((method) => method.type === paymentMethod);
+  }, [paymentMethod, settings?.paymentMethods]);
 
   return (
     <section className="space-y-6">
@@ -251,27 +609,61 @@ export const InvoiceBuilderPage: React.FC = () => {
             {stepIndex > 0 && (
               <div className="flex items-center justify-between gap-3 rounded-[24px] border border-slate-100 bg-white/80 px-5 py-4">
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
                     Client
                   </div>
                   <div className="text-sm font-semibold text-ink">John Doe</div>
                   <div className="text-xs text-slate-500">anonymous@test.com</div>
                 </div>
-                <div className="w-[96px]">
-                  <CurrencySelector
-                    value={currency}
-                    onChange={setCurrency}
-                    buttonClassName="h-10 px-3 text-xs"
-                  />
-                </div>
+                {stepIndex === 1 ? (
+                  <div className="w-[96px]">
+                    <CurrencySelector
+                      value={currency}
+                      onChange={setCurrency}
+                      buttonClassName="h-10 px-3 text-xs"
+                    />
+                  </div>
+                ) : (
+                  <div className="text-right">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
+                      Total due
+                    </div>
+                    <div className="text-base font-semibold text-ink">
+                      {currencySymbol}{' '}
+                      {totalDue.toLocaleString('en-NG', { maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             <div>
               <StepPanel
                 stepId={currentStep.id}
-                currency={currency}
-                onCurrencyChange={setCurrency}
+                client={client}
+                clientPhone={clientPhone}
+                onClientChange={(field, value) =>
+                  setClient((prev) => ({ ...prev, [field]: value }))
+                }
+                onClientPhoneChange={setClientPhone}
+                items={items}
+                onAddItem={handleAddItem}
+                onRemoveItem={handleRemoveItem}
+                onItemChange={handleItemChange}
+                totalDue={totalDue}
+                currencySymbol={currencySymbol}
+                paymentMethod={paymentMethod}
+                onPaymentMethodChange={setPaymentMethod}
+                notes={notes}
+                onNotesChange={setNotes}
+                includeNotes={includeNotes}
+                onIncludeNotesChange={setIncludeNotes}
+                includeDiscount={includeDiscount}
+                onIncludeDiscountChange={setIncludeDiscount}
+                discountAmount={discountAmount}
+                onDiscountAmountChange={setDiscountAmount}
+                discountPercentValue={discountPercentValue}
+                discountAmountValue={discountAmountValue}
               />
             </div>
 
@@ -279,7 +671,7 @@ export const InvoiceBuilderPage: React.FC = () => {
               <button
                 type="button"
                 onClick={goPrev}
-                disabled={stepIndex === 0}
+                disabled={stepIndex === 0 || isGenerating}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-white px-5 py-5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span className="icon material-symbols-rounded text-[18px]">arrow_back</span>
@@ -287,23 +679,61 @@ export const InvoiceBuilderPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={goNext}
-                disabled={stepIndex === totalSteps - 1}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--brand-blue)] px-5 py-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={isFinalStep ? handleGenerate : goNext}
+                disabled={isGenerating || !canProceed}
+                className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[var(--brand-blue)] px-5 py-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Next step
-                <span className="icon material-symbols-rounded text-[18px]">
-                  arrow_forward
-                </span>
+                {isGenerating ? (
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                ) : isFinalStep ? (
+                  <>
+                    Generate invoice
+                    <span className="icon material-symbols-rounded text-[18px]">
+                      receipt_long
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Next step
+                    <span className="icon material-symbols-rounded text-[18px]">
+                      arrow_forward
+                    </span>
+                  </>
+                )}
               </button>
             </div>
           </div>
 
           <aside className="hidden lg:flex lg:items-start lg:justify-center">
-            <div className="w-full overflow-hidden rounded-[22px] border border-slate-100 bg-white/70">
-              <div className="flex w-full justify-center">
-                <InvoicePdfPreview className="origin-top scale-[0.9]" />
-              </div>
+            <div className="w-full overflow-hidden rounded-[22px] border border-slate-100 bg-white/70 p-4">
+              <PdfPreviewFrame>
+                <InvoicePdfPreview
+                  showSkeleton
+                  invoice={{
+                    invoiceNumber: 'Draft',
+                    issueDate: new Date().toISOString(),
+                    currency,
+                    client: {
+                      name: client.name.trim() || 'Client name',
+                      email: client.email.trim() || undefined,
+                      address: client.address.trim() || undefined
+                    },
+                    items: normalizedItems,
+                    subtotal,
+                    tax: discountAmountValue,
+                    total: totalDue,
+                    paymentMethod,
+                    notes: includeNotes ? notes : undefined,
+                    createdAt: new Date().toISOString()
+                  }}
+                  logoUrl={logoUrl ?? undefined}
+                  profile={settings ?? undefined}
+                  paymentMethod={selectedPaymentDetails}
+                  discountPercent={discountPercentValue}
+                  showDiscount={includeDiscount}
+                  clientPhone={clientPhone || undefined}
+                />
+              </PdfPreviewFrame>
             </div>
           </aside>
         </div>
@@ -314,7 +744,7 @@ export const InvoiceBuilderPage: React.FC = () => {
           <button
             type="button"
             onClick={goPrev}
-            disabled={stepIndex === 0}
+            disabled={stepIndex === 0 || isGenerating}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-white px-5 py-5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <span className="icon material-symbols-rounded text-[18px]">arrow_back</span>
@@ -322,14 +752,27 @@ export const InvoiceBuilderPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={goNext}
-            disabled={stepIndex === totalSteps - 1}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--brand-blue)] px-5 py-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={isFinalStep ? handleGenerate : goNext}
+            disabled={isGenerating || !canProceed}
+            className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[var(--brand-blue)] px-5 py-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Next step
-            <span className="icon material-symbols-rounded text-[18px]">
-              arrow_forward
-            </span>
+            {isGenerating ? (
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            ) : isFinalStep ? (
+              <>
+                Generate invoice
+                <span className="icon material-symbols-rounded text-[18px]">
+                  receipt_long
+                </span>
+              </>
+            ) : (
+              <>
+                Next step
+                <span className="icon material-symbols-rounded text-[18px]">
+                  arrow_forward
+                </span>
+              </>
+            )}
           </button>
         </div>
       </div>

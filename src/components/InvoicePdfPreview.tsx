@@ -1,9 +1,9 @@
 import React from 'react';
 import risopoLogo from '../assets/risopo.svg';
-import { InvoiceRecord } from '../types/invoice';
+import { InvoiceItem, InvoiceRecord, PaymentMethodType } from '../types/invoice';
 import { BusinessProfile, PaymentMethod } from '../types/settings';
 
-const fallbackItems = [
+const fallbackItems: InvoiceItem[] = [
   {
     id: 'item-1',
     name: 'Deluxe catering package for 50 guests, including appetizers, main course, dessert, and beverages',
@@ -39,14 +39,24 @@ const fallbackTo = {
   phone: '+1 7812 2211'
 };
 
-const fallbackPayment = {
-  line1: '0171457329',
-  line2: 'Gtbank',
-  line3: 'Michael Boluwatife Onafowokan'
-};
-
-const fallbackPolicy =
-  'Our refund policy lasts 30 days. If 30 days have gone by since your purchase, unfortunately, we can’t offer you a refund or exchange.';
+const fallbackPayments: Record<PaymentMethodType, { line1: string; line2: string; line3: string }> =
+  {
+    bank: {
+      line1: '0171457329',
+      line2: 'Gtbank',
+      line3: 'Michael Boluwatife Onafowokan'
+    },
+    crypto: {
+      line1: '0x4d9f...9b2a',
+      line2: 'Ethereum (ERC-20)',
+      line3: 'Risopo Treasury'
+    },
+    link: {
+      line1: 'https://pay.risopo.com/invoice',
+      line2: 'Default checkout link',
+      line3: 'Payment link'
+    }
+  };
 
 const formatDate = (value: string | undefined, fallback: string) => {
   if (!value) return fallback;
@@ -80,8 +90,11 @@ const currencyMeta = (currency: string) => {
   }
 };
 
-const resolvePaymentLines = (paymentMethod?: PaymentMethod) => {
-  if (!paymentMethod) return fallbackPayment;
+const resolvePaymentLines = (
+  paymentMethod?: PaymentMethod,
+  fallbackType: PaymentMethodType = 'bank'
+) => {
+  if (!paymentMethod) return fallbackPayments[fallbackType];
   if (paymentMethod.type === 'bank') {
     return {
       line1: paymentMethod.accountNumber,
@@ -111,6 +124,9 @@ export interface InvoicePdfPreviewProps {
   logoUrl?: string;
   discountRate?: number;
   className?: string;
+  showSkeleton?: boolean;
+  discountPercent?: number;
+  showDiscount?: boolean;
 }
 
 export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
@@ -120,31 +136,58 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
   clientPhone,
   logoUrl,
   discountRate = 0.02,
-  className
+  className,
+  showSkeleton = false,
+  discountPercent,
+  showDiscount = true
 }) => {
   const items = invoice?.items?.length ? invoice.items : fallbackItems;
   const subtotal =
     typeof invoice?.subtotal === 'number'
       ? invoice.subtotal
       : items.reduce((sum, item) => sum + (item.total ?? item.unitPrice * item.quantity), 0);
-  const discountAmount =
-    typeof invoice?.tax === 'number' ? Math.abs(invoice.tax) : subtotal * discountRate;
+  const discountAmount = (() => {
+    if (typeof invoice?.tax === 'number') return Math.max(invoice.tax, 0);
+    if (!showDiscount) return 0;
+    return subtotal * discountRate;
+  })();
   const totalDue =
     typeof invoice?.total === 'number' ? invoice.total : Math.max(subtotal - discountAmount, 0);
   const currencyCode = invoice?.currency || profile?.defaultCurrency || 'NGN';
   const currency = currencyMeta(currencyCode);
-  const paymentLines = resolvePaymentLines(paymentMethod);
+  const paymentLines = resolvePaymentLines(paymentMethod, invoice?.paymentMethod ?? 'bank');
 
-  const fromName = profile?.businessName || fallbackFrom.name;
-  const fromEmail = profile?.businessEmail || fallbackFrom.email;
-  const fromPhone = profile?.phone || fallbackFrom.phone;
+  const fromNameValue = profile?.businessName?.trim() || (showSkeleton ? '' : fallbackFrom.name);
+  const fromEmailValue = profile?.businessEmail?.trim() || (showSkeleton ? '' : fallbackFrom.email);
+  const fromPhoneValue = profile?.phone?.trim() || (showSkeleton ? '' : fallbackFrom.phone);
 
-  const toName = invoice?.client?.name || fallbackTo.name;
-  const toEmail = invoice?.client?.email || fallbackTo.email;
-  const toPhone = clientPhone || invoice?.client?.address || fallbackTo.phone;
+  const toName = invoice?.client?.name?.trim() || (showSkeleton ? '' : fallbackTo.name);
+  const toEmail = invoice?.client?.email?.trim() || (showSkeleton ? '' : fallbackTo.email);
+  const toPhone =
+    clientPhone || invoice?.client?.address?.trim() || (showSkeleton ? '' : fallbackTo.phone);
 
   const issueDate = formatDate(invoice?.issueDate, '16.04.2026');
-  const refundPolicy = invoice?.refundPolicy || profile?.refundPolicy || fallbackPolicy;
+  const rawNotes = invoice?.refundPolicy ?? invoice?.notes;
+  const refundPolicy = showSkeleton ? rawNotes : rawNotes || profile?.refundPolicy;
+  const resolvedDiscountPercent =
+    typeof discountPercent === 'number'
+      ? discountPercent
+      : subtotal > 0
+        ? (discountAmount / subtotal) * 100
+        : 0;
+  const showAmountSkeleton =
+    showSkeleton && items.every((item) => !item.name && item.quantity === 0 && item.unitPrice === 0);
+
+  const SkeletonLine: React.FC<{ width: string; height?: string; className?: string }> = ({
+    width,
+    height = '10px',
+    className: extraClassName = ''
+  }) => (
+    <span
+      className={`inline-block rounded-full bg-[#e9ebef] ${extraClassName}`}
+      style={{ width, height }}
+    />
+  );
 
   return (
     <div
@@ -154,10 +197,10 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
         <div className="flex w-[507px] flex-1 flex-col justify-between">
           <div className="flex flex-col gap-8">
             <div className="flex items-start justify-between">
-              <div className="flex h-[48px] w-[48px] items-center justify-center overflow-hidden">
+              <div className="flex h-[64px] w-[64px] items-center justify-center overflow-hidden">
                 <img
                   alt="Company logo"
-                  className="h-[10.9px] w-[48px] object-contain"
+                  className="h-[16px] w-[64px] object-contain"
                   src={logoUrl || risopoLogo}
                 />
               </div>
@@ -177,13 +220,13 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                 <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
                   Date
                 </div>
-                <div className="text-[12px] text-[#787c7d]">{issueDate}</div>
+                <div className="text-[12px] text-[#5f6368]">{issueDate}</div>
               </div>
               <div className="flex w-[71px] flex-col items-start gap-1">
                 <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
                   Currency
                 </div>
-                <div className="text-[12px] text-[#787c7d]">{currency.label}</div>
+                <div className="text-[12px] text-[#5f6368]">{currency.label}</div>
               </div>
             </div>
 
@@ -193,9 +236,33 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                   From
                 </div>
                 <div className="flex flex-col items-start gap-0.5">
-                  <div className="text-[12px] text-[#787c7d]">{fromName}</div>
-                  <div className="text-[12px] text-[#787c7d]">{fromEmail || '—'}</div>
-                  <div className="text-[12px] text-[#787c7d]">{fromPhone || '—'}</div>
+                  <div className="text-[12px] text-[#5f6368]">
+                    {fromNameValue ? (
+                      fromNameValue
+                    ) : showSkeleton ? (
+                      <SkeletonLine width="140px" height="10px" className="animate-pulse" />
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                  <div className="text-[12px] text-[#5f6368]">
+                    {fromEmailValue ? (
+                      fromEmailValue
+                    ) : showSkeleton ? (
+                      <SkeletonLine width="120px" height="10px" className="animate-pulse" />
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                  <div className="text-[12px] text-[#5f6368]">
+                    {fromPhoneValue ? (
+                      fromPhoneValue
+                    ) : showSkeleton ? (
+                      <SkeletonLine width="110px" height="10px" className="animate-pulse" />
+                    ) : (
+                      '—'
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex flex-col items-start gap-1">
@@ -203,14 +270,38 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                   To
                 </div>
                 <div className="flex flex-col items-start gap-0.5">
-                  <div className="text-[12px] text-[#787c7d]">{toName}</div>
-                  <div className="text-[12px] text-[#787c7d]">{toEmail || '—'}</div>
-                  <div className="text-[12px] text-[#787c7d]">{toPhone || '—'}</div>
+                  <div className="text-[12px] text-[#5f6368]">
+                    {toName ? (
+                      toName
+                    ) : showSkeleton ? (
+                      <SkeletonLine width="140px" height="10px" className="animate-pulse" />
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                  <div className="text-[12px] text-[#5f6368]">
+                    {toEmail ? (
+                      toEmail
+                    ) : showSkeleton ? (
+                      <SkeletonLine width="120px" height="10px" className="animate-pulse" />
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                  <div className="text-[12px] text-[#5f6368]">
+                    {toPhone ? (
+                      toPhone
+                    ) : showSkeleton ? (
+                      <SkeletonLine width="110px" height="10px" className="animate-pulse" />
+                    ) : (
+                      '—'
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-6">
+            <div className="mt-4 flex flex-col items-end gap-6">
               <div className="flex w-full flex-col gap-3">
                 <div className="flex items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
                   <div className="flex-1">Item / Service</div>
@@ -220,22 +311,56 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                     <div className="w-[82.51px] text-right">Amount</div>
                   </div>
                 </div>
-                <div className="flex flex-col gap-6 text-[12px] text-[#787c7d]">
+                <div className="flex flex-col gap-6 text-[12px] text-[#5f6368]">
                   {items.map((item) => {
                     const description = item.description || item.name;
                     const amount = item.total ?? item.unitPrice * item.quantity;
+                    const showNameSkeleton = showSkeleton && !item.name;
+                    const showQtySkeleton = showSkeleton && item.quantity === 0;
+                    const showPriceSkeleton = showSkeleton && item.unitPrice === 0;
+                    const showAmount = !(showQtySkeleton || showPriceSkeleton);
                     return (
                       <div key={item.id} className="flex items-start gap-3">
-                        <div className="flex-1">{description}</div>
+                        <div className="flex-1">
+                          {showNameSkeleton ? (
+                            <SkeletonLine width="260px" height="10px" className="animate-pulse" />
+                          ) : (
+                            description || '—'
+                          )}
+                        </div>
                         <div className="flex items-center gap-3">
                           <div className="w-[117.58px] text-right tracking-[0.2px]">
-                            {formatNumber(item.unitPrice)}
+                            {showPriceSkeleton ? (
+                              <SkeletonLine
+                                width="60px"
+                                height="10px"
+                                className="ml-auto animate-pulse"
+                              />
+                            ) : (
+                              formatNumber(item.unitPrice)
+                            )}
                           </div>
                           <div className="w-[49.92px] text-right">
-                            {formatNumber(item.quantity, 0)}
+                            {showQtySkeleton ? (
+                              <SkeletonLine
+                                width="24px"
+                                height="10px"
+                                className="ml-auto animate-pulse"
+                              />
+                            ) : (
+                              formatNumber(item.quantity, 0)
+                            )}
                           </div>
                           <div className="w-[82.51px] text-right tracking-[0.2px]">
-                            {formatNumber(amount)}
+                            {showAmount ? (
+                              formatNumber(amount)
+                            ) : (
+                              <SkeletonLine
+                                width="48px"
+                                height="10px"
+                                className="ml-auto animate-pulse"
+                              />
+                            )}
                           </div>
                         </div>
                       </div>
@@ -245,22 +370,40 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
               </div>
 
               <div className="flex w-[247px] flex-col items-end gap-3">
-                <div className="flex w-full flex-col items-start gap-2">
-                  <div className="flex w-full items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
-                    <div>Subtotal</div>
-                    <div className="flex items-center gap-1">
-                      <div>{currency.symbol}</div>
-                      <div className="text-right text-[12px] text-[#787c7d] tracking-[0.2px] font-['Google_Sans',sans-serif]">
-                        {formatNumber(subtotal)}
+                <div className="w-full border-y border-[#e6e6e6] py-3">
+                  <div className="flex w-full flex-col items-start gap-2">
+                    <div className="flex w-full items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                      <div>Subtotal</div>
+                      <div className="flex items-center gap-1">
+                        <div>{currency.symbol}</div>
+                        <div className="text-right text-[12px] text-[#5f6368] tracking-[0.2px] font-['Google_Sans',sans-serif]">
+                          {showAmountSkeleton ? (
+                            <SkeletonLine
+                              width="70px"
+                              height="10px"
+                              className="ml-auto animate-pulse"
+                            />
+                          ) : (
+                            formatNumber(subtotal)
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex w-full items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
-                    <div>Discount (2%)</div>
-                    <div className="flex items-center gap-1">
-                      <div>-{currency.symbol}</div>
-                      <div className="text-right text-[12px] text-[#787c7d] tracking-[0.2px] font-['Google_Sans',sans-serif]">
-                        {formatNumber(discountAmount)}
+                    <div className="flex w-full items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                      <div>Discount ({resolvedDiscountPercent.toFixed(2)}%)</div>
+                      <div className="flex items-center gap-1">
+                        <div>-{currency.symbol}</div>
+                        <div className="text-right text-[12px] text-[#5f6368] tracking-[0.2px] font-['Google_Sans',sans-serif]">
+                          {showAmountSkeleton ? (
+                            <SkeletonLine
+                              width="60px"
+                              height="10px"
+                              className="ml-auto animate-pulse"
+                            />
+                          ) : (
+                            formatNumber(discountAmount)
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -270,7 +413,11 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                   <div className="flex items-center gap-1">
                     <div className="text-[12px]">{currency.symbol}</div>
                     <div className="text-right text-[16px] font-medium text-[#575757] tracking-[0.5px] font-['Google_Sans',sans-serif]">
-                      {formatNumber(totalDue)}
+                      {showAmountSkeleton ? (
+                        <SkeletonLine width="78px" height="12px" className="ml-auto animate-pulse" />
+                      ) : (
+                        formatNumber(totalDue)
+                      )}
                     </div>
                   </div>
                 </div>
@@ -278,7 +425,11 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
             </div>
           </div>
 
-          <div className="flex w-[377px] flex-col gap-4">
+          <div
+            className={`flex w-[377px] flex-col items-start ${
+              refundPolicy || (showSkeleton && rawNotes !== undefined) ? 'gap-4' : 'gap-0'
+            }`}
+          >
             <div className="flex w-[247px] flex-col gap-1">
               <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
                 Payment Details
@@ -296,7 +447,15 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                 </span>
               </div>
             </div>
-            <div className="text-[10px] text-[#a4a4a4]">{refundPolicy}</div>
+            {(refundPolicy || (showSkeleton && rawNotes !== undefined)) && (
+              <div className="text-[10px] text-[#a4a4a4]">
+                {refundPolicy ? (
+                  refundPolicy
+                ) : (
+                  <SkeletonLine width="260px" height="10px" className="animate-pulse" />
+                )}
+              </div>
+            )}
           </div>
         </div>
 

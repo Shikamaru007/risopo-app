@@ -27,6 +27,14 @@ const emptyForm: SettingsForm = {
   paymentMethods: []
 };
 
+const sanitizePhoneInput = (value: string) => {
+  const cleaned = value.replace(/[^\d+]/g, '');
+  if (cleaned.startsWith('+')) {
+    return `+${cleaned.slice(1).replace(/\+/g, '')}`;
+  }
+  return cleaned.replace(/\+/g, '');
+};
+
 export const SettingsPage: React.FC = () => {
   const ready = useDexieReady();
   const [form, setForm] = useState<SettingsForm>(emptyForm);
@@ -255,7 +263,7 @@ export const SettingsPage: React.FC = () => {
             <FieldLabel>Phone</FieldLabel>
             <TextInput
               value={form.phone}
-              onChange={(event) => updateField('phone', event.target.value)}
+              onChange={(event) => updateField('phone', sanitizePhoneInput(event.target.value))}
             />
           </label>
           <label className="space-y-1.5 text-sm text-slate-500 md:col-span-2">

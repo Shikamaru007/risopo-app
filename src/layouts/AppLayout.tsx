@@ -2,6 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { navItems, NavIconName } from '../utils/nav';
 import risopoLogo from '../assets/risopo.svg';
+import { buildPdf } from '../lib/pdf';
+import { addInvoice } from '../db/invoices';
+import { useDexieReady } from '../hooks/useDexieReady';
+import { InvoiceRecord } from '../types/invoice';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -87,23 +91,28 @@ const BottomNav: React.FC = () => {
 };
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isBuilderPreview = pathname === '/builder/preview';
   const headerTitle = pathname.startsWith('/invoices')
     ? 'Invoices'
     : pathname.startsWith('/settings')
       ? 'Settings'
-      : pathname.startsWith('/builder')
-        ? 'Create Invoice'
-        : '';
+      : isBuilderPreview
+        ? 'Invoice Preview'
+        : pathname.startsWith('/builder')
+          ? 'Create Invoice'
+          : '';
   const showLogo = headerTitle === '';
-  const showBuilderBack = pathname.startsWith('/builder');
+  const showBuilderBack = pathname === '/builder';
+  const showPreviewBack = pathname === '/builder/preview';
   const showNewInvoice = pathname === '/dashboard';
   const hideNav = pathname.startsWith('/builder');
-  const showHomeButton = pathname.startsWith('/builder');
+  const showHomeButton = pathname === '/builder';
 
-  const builderStepOrder = useMemo(() => ['client', 'items', 'payment', 'review'], []);
+  const builderStepOrder = useMemo(() => ['client', 'items', 'payment'], []);
   const builderStepIndex = useMemo(() => {
     const step = searchParams.get('step');
     if (!step) return 0;
@@ -133,6 +142,43 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   }, [theme]);
 
   const [scrolled, setScrolled] = useState(false);
+  const ready = useDexieReady();
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const previewInvoice = useMemo(() => {
+    if (!isBuilderPreview) return null;
+    const state = location.state as { invoice?: InvoiceRecord } | null;
+    if (state?.invoice) return state.invoice;
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = window.sessionStorage.getItem('generatedInvoice');
+      if (!stored) return null;
+      return JSON.parse(stored) as InvoiceRecord;
+    } catch {
+      return null;
+    }
+  }, [isBuilderPreview, location.state]);
+
+  const handlePreviewSave = async () => {
+    if (!previewInvoice || !ready || saving || saved) return;
+    setSaving(true);
+    try {
+      await addInvoice(previewInvoice);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePreviewDownload = () => {
+    if (!previewInvoice || downloading) return;
+    setDownloading(true);
+    const doc = buildPdf(previewInvoice);
+    doc.save(`risopo-${previewInvoice.invoiceNumber}.pdf`);
+    window.setTimeout(() => setDownloading(false), 500);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -160,11 +206,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 <img src={risopoLogo} alt="Risopo" className="h-8 w-8" />
               ) : (
                 <div className="flex items-center gap-3">
-                  {showBuilderBack && (
+                  {(showBuilderBack || showPreviewBack) && (
                     <button
                       type="button"
-                      onClick={handleBuilderBack}
-                      aria-label="Back to dashboard"
+                      onClick={
+                        showPreviewBack
+                          ? () => navigate('/builder?step=payment')
+                          : handleBuilderBack
+                      }
+                      aria-label="Back to previous step"
                       className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
                     >
                       <span className="icon material-symbols-rounded text-[20px]">
@@ -179,6 +229,47 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               )}
             </div>
             <div className="flex items-center gap-2 text-gray-700">
+              {isBuilderPreview && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePreviewSave}
+                    disabled={!ready || saving || saved}
+                    aria-label={saved ? 'Invoice saved' : 'Share invoice'}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl transition-colors disabled:cursor-not-allowed disabled:opacity-60 md:h-11 md:w-11"
+                  >
+                    {saving ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+                    ) : (
+                      <span className="icon material-symbols-rounded text-[20px]">
+                        {saved ? 'check' : 'share'}
+                      </span>
+                    )}
+                  </button>
+                  <Link
+                    to="/dashboard"
+                    aria-label="Go to dashboard"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
+                  >
+                    <span className="icon material-symbols-rounded text-[20px]">home</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handlePreviewDownload}
+                    disabled={downloading || !previewInvoice}
+                    aria-label="Download invoice"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-blue)] text-xl text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60 md:h-11 md:w-11"
+                  >
+                    {downloading ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    ) : (
+                      <span className="icon material-symbols-rounded text-[20px]">
+                        download
+                      </span>
+                    )}
+                  </button>
+                </>
+              )}
               {showHomeButton && (
                 <Link
                   to="/dashboard"
@@ -188,15 +279,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   <span className="icon material-symbols-rounded text-[20px]">home</span>
                 </Link>
               )}
-              <button
-                aria-label="Toggle theme"
-                onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
-              >
-                <span className="icon material-symbols-rounded text-[20px]">
-                  {theme === 'dark' ? 'light_mode' : 'dark_mode'}
-                </span>
-              </button>
+              {!isBuilderPreview && (
+                <button
+                  aria-label="Toggle theme"
+                  onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
+                >
+                  <span className="icon material-symbols-rounded text-[20px]">
+                    {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+                  </span>
+                </button>
+              )}
               {showNewInvoice && (
                 <Link
                   to="/builder"
