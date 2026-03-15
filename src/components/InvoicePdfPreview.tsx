@@ -1,0 +1,293 @@
+import React from 'react';
+import risopoLogo from '../assets/risopo.svg';
+import { InvoiceRecord } from '../types/invoice';
+import { BusinessProfile, PaymentMethod } from '../types/settings';
+
+const fallbackItems = [
+  {
+    id: 'item-1',
+    name: 'Deluxe catering package for 50 guests, including appetizers, main course, dessert, and beverages',
+    quantity: 1,
+    unitPrice: 370000,
+    total: 370000
+  },
+  {
+    id: 'item-2',
+    name: 'Standard catering package for 50 guests, featuring a selection of appetizers, a choice of main courses, and soft drinks',
+    quantity: 1,
+    unitPrice: 250000,
+    total: 250000
+  },
+  {
+    id: 'item-3',
+    name: 'Basic catering package for 25 guests, including light snacks and water service',
+    quantity: 1,
+    unitPrice: 150000,
+    total: 150000
+  }
+];
+
+const fallbackFrom = {
+  name: 'Michael Onafowokan',
+  email: 'risopoapp@test.com',
+  phone: '+1 4211 0009'
+};
+
+const fallbackTo = {
+  name: 'John Doe',
+  email: 'anonymous@test.com',
+  phone: '+1 7812 2211'
+};
+
+const fallbackPayment = {
+  line1: '0171457329',
+  line2: 'Gtbank',
+  line3: 'Michael Boluwatife Onafowokan'
+};
+
+const fallbackPolicy =
+  'Our refund policy lasts 30 days. If 30 days have gone by since your purchase, unfortunately, we can’t offer you a refund or exchange.';
+
+const formatDate = (value: string | undefined, fallback: string) => {
+  if (!value) return fallback;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  const formatted = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(parsed);
+  return formatted.replace(/\//g, '.');
+};
+
+const formatNumber = (value: number, maximumFractionDigits = 0) =>
+  new Intl.NumberFormat('en-NG', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits
+  }).format(value);
+
+const currencyMeta = (currency: string) => {
+  switch (currency) {
+    case 'USD':
+      return { label: 'US Dollar ($)', symbol: '$' };
+    case 'GBP':
+      return { label: 'Pound Sterling (£)', symbol: '£' };
+    case 'EUR':
+      return { label: 'Euro (€)', symbol: '€' };
+    case 'NGN':
+    default:
+      return { label: 'Naira  (₦)', symbol: '₦' };
+  }
+};
+
+const resolvePaymentLines = (paymentMethod?: PaymentMethod) => {
+  if (!paymentMethod) return fallbackPayment;
+  if (paymentMethod.type === 'bank') {
+    return {
+      line1: paymentMethod.accountNumber,
+      line2: paymentMethod.bankName,
+      line3: paymentMethod.accountName
+    };
+  }
+  if (paymentMethod.type === 'crypto') {
+    return {
+      line1: paymentMethod.walletAddress,
+      line2: paymentMethod.network,
+      line3: paymentMethod.label
+    };
+  }
+  return {
+    line1: paymentMethod.url,
+    line2: paymentMethod.label,
+    line3: 'Payment link'
+  };
+};
+
+export interface InvoicePdfPreviewProps {
+  invoice?: Partial<InvoiceRecord>;
+  profile?: Partial<BusinessProfile>;
+  paymentMethod?: PaymentMethod;
+  clientPhone?: string;
+  logoUrl?: string;
+  discountRate?: number;
+  className?: string;
+}
+
+export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
+  invoice,
+  profile,
+  paymentMethod,
+  clientPhone,
+  logoUrl,
+  discountRate = 0.02,
+  className
+}) => {
+  const items = invoice?.items?.length ? invoice.items : fallbackItems;
+  const subtotal =
+    typeof invoice?.subtotal === 'number'
+      ? invoice.subtotal
+      : items.reduce((sum, item) => sum + (item.total ?? item.unitPrice * item.quantity), 0);
+  const discountAmount =
+    typeof invoice?.tax === 'number' ? Math.abs(invoice.tax) : subtotal * discountRate;
+  const totalDue =
+    typeof invoice?.total === 'number' ? invoice.total : Math.max(subtotal - discountAmount, 0);
+  const currencyCode = invoice?.currency || profile?.defaultCurrency || 'NGN';
+  const currency = currencyMeta(currencyCode);
+  const paymentLines = resolvePaymentLines(paymentMethod);
+
+  const fromName = profile?.businessName || fallbackFrom.name;
+  const fromEmail = profile?.businessEmail || fallbackFrom.email;
+  const fromPhone = profile?.phone || fallbackFrom.phone;
+
+  const toName = invoice?.client?.name || fallbackTo.name;
+  const toEmail = invoice?.client?.email || fallbackTo.email;
+  const toPhone = clientPhone || invoice?.client?.address || fallbackTo.phone;
+
+  const issueDate = formatDate(invoice?.issueDate, '16.04.2026');
+  const refundPolicy = invoice?.refundPolicy || profile?.refundPolicy || fallbackPolicy;
+
+  return (
+    <div
+      className={`relative h-[842px] w-[595px] bg-white text-[#787c7d] ${className || ''}`}
+    >
+      <div className="absolute left-[44px] top-[44px] flex h-[48px] w-[48px] items-center justify-center">
+        <img
+          alt="Company logo"
+          className="h-[10.9px] w-[48px] object-contain"
+          src={logoUrl || risopoLogo}
+        />
+      </div>
+
+      <div className="absolute right-[44px] top-[44px] flex flex-col items-end pb-1">
+        <p className="text-[45px] font-semibold leading-[1.2] text-[#575757]">Invoice</p>
+        <div className="flex items-center gap-2 text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+          <span>Invoice no:</span>
+          <span className="text-right">{invoice?.invoiceNumber || '#INV-103'}</span>
+        </div>
+      </div>
+
+      <div className="absolute left-[44px] top-[137px] flex w-[292px] items-center justify-between">
+        <div className="flex w-[71px] flex-col gap-1">
+          <span className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">Date</span>
+          <span className="text-[12px] text-[#787c7d]">{issueDate}</span>
+        </div>
+        <div className="flex w-[71px] flex-col gap-1">
+          <span className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+            Currency
+          </span>
+          <span className="text-[12px] text-[#787c7d]">{currency.label}</span>
+        </div>
+      </div>
+
+      <div className="absolute left-[44px] top-[201px] flex w-[342px] items-start justify-between">
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">From</span>
+          <div className="flex flex-col gap-0.5 text-[12px] text-[#787c7d]">
+            <span>{fromName}</span>
+            <span>{fromEmail || '—'}</span>
+            <span>{fromPhone || '—'}</span>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">To</span>
+          <div className="flex flex-col gap-0.5 text-[12px] text-[#787c7d]">
+            <span>{toName}</span>
+            <span>{toEmail || '—'}</span>
+            <span>{toPhone || '—'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute left-[44px] top-[299px] flex w-[507px] flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+            <span className="flex-1">Item / Service</span>
+            <div className="flex items-center gap-3 text-right">
+              <span className="w-[118px]">Unit Cost</span>
+              <span className="w-[50px]">Qty</span>
+              <span className="w-[82px]">Amount</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-6 text-[12px] text-[#787c7d]">
+            {items.map((item) => {
+              const description = item.description || item.name;
+              const amount = item.total ?? item.unitPrice * item.quantity;
+              return (
+                <div key={item.id} className="flex items-start gap-3">
+                  <span className="flex-1">{description}</span>
+                  <div className="flex items-center gap-3 text-right">
+                    <span className="w-[118px] tracking-[0.2px]">
+                      {formatNumber(item.unitPrice)}
+                    </span>
+                    <span className="w-[50px]">{formatNumber(item.quantity, 0)}</span>
+                    <span className="w-[82px] tracking-[0.2px]">
+                      {formatNumber(amount)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="ml-auto flex w-[247px] flex-col gap-3">
+          <div className="h-px w-full bg-[#e5e7eb]" />
+          <div className="flex flex-col gap-2 text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+            <div className="flex items-center justify-between">
+              <span>Subtotal</span>
+              <div className="flex items-center gap-1">
+                <span>{currency.symbol}</span>
+                <span className="text-[12px] text-[#787c7d] tracking-[0.2px] font-['Google_Sans',sans-serif]">
+                  {formatNumber(subtotal)}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Discount (2%)</span>
+              <div className="flex items-center gap-1">
+                <span>-{currency.symbol}</span>
+                <span className="text-[12px] text-[#787c7d] tracking-[0.2px] font-['Google_Sans',sans-serif]">
+                  {formatNumber(discountAmount)}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="h-px w-full bg-[#e5e7eb]" />
+          <div className="flex items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+            <span>Total Due</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[12px]">{currency.symbol}</span>
+              <span className="text-[16px] font-medium text-[#575757] tracking-[0.5px] font-['Google_Sans',sans-serif]">
+                {formatNumber(totalDue)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute bottom-[44px] left-[44px] flex w-[377px] flex-col gap-4">
+        <div className="flex w-[247px] flex-col gap-1">
+          <span className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+            Payment Details
+          </span>
+          <div className="flex items-start justify-between rounded-[20px] bg-[#f5f5f5] p-[12px]">
+            <div className="flex flex-col gap-0.5 text-[10px] text-[#787c7d]">
+              <span className="text-[#434343] font-medium">{paymentLines.line1}</span>
+              <span>{paymentLines.line2}</span>
+              <span>{paymentLines.line3}</span>
+            </div>
+            <span className="material-symbols-rounded text-[12px] text-[#b2b2b2]">
+              content_copy
+            </span>
+          </div>
+        </div>
+        <p className="text-[10px] text-[#a4a4a4]">{refundPolicy}</p>
+      </div>
+
+      <span className="absolute bottom-[44px] right-[44px] text-[10px] text-[#f0f0f0] font-['Google_Sans_Mono',monospace]">
+        risopo.com
+      </span>
+    </div>
+  );
+};
