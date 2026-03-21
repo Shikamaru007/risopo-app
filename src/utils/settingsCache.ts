@@ -39,6 +39,15 @@ export const writeSettingsCache = (data: SettingsRecord, savedAt: Date) => {
   }
 };
 
+export const clearSettingsCache = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(SETTINGS_CACHE_KEY);
+  } catch {
+    // ignore cache failures
+  }
+};
+
 export const readLogoCache = (id?: string | null) => {
   if (typeof window === 'undefined' || !id) return null;
   try {

@@ -40,9 +40,7 @@ const buildSeedInvoice = (): InvoiceRecord => {
   const discount = subtotal * 0.02;
   return {
     id,
-    invoiceNumber: `INV-${createdAt.getFullYear()}-${String(createdAt.getDate()).padStart(2, '0')}${String(
-      createdAt.getMonth() + 1
-    ).padStart(2, '0')}`,
+    invoiceNumber: 'INV-001',
     status: 'pending',
     issueDate: createdAt.toISOString(),
     dueDate: dueDate.toISOString(),
@@ -159,15 +157,38 @@ export const InvoiceGeneratedPage: React.FC = () => {
     <section className="space-y-6">
       <div className="rounded-[28px] border border-slate-100 bg-white/80 p-0 md:mx-auto md:w-fit">
         <PdfPreviewFrame>
-          <InvoicePdfPreview
+          <div id="invoice-preview">
+            <InvoicePdfPreview
             invoice={invoice}
             clientPhone={clientPhone || undefined}
             profile={settings ?? undefined}
             paymentMethod={selectedPaymentDetails}
             showSkeleton={!hasProfileDetails}
             logoUrl={logoUrl ?? undefined}
-          />
+            />
+          </div>
         </PdfPreviewFrame>
+      </div>
+
+      <div
+        id="invoice-preview-pdf"
+        aria-hidden
+        style={{
+          position: 'fixed',
+          left: '-10000px',
+          top: 0,
+          pointerEvents: 'none'
+        }}
+      >
+        <InvoicePdfPreview
+          invoice={invoice}
+          clientPhone={clientPhone || undefined}
+          profile={settings ?? undefined}
+          paymentMethod={selectedPaymentDetails}
+          showSkeleton={false}
+          useFallback={false}
+          logoUrl={logoUrl ?? undefined}
+        />
       </div>
     </section>
   );

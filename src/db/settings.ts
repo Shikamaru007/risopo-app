@@ -8,3 +8,5 @@ export const getSettings = async () => db.settings.get(SETTINGS_ID);
 export const upsertSettings = async (settings: SettingsRecord) => {
   return db.settings.put({ ...settings, id: SETTINGS_ID });
 };
+
+export const clearSettings = async () => db.settings.delete(SETTINGS_ID);

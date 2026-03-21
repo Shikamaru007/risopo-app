@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { InvoicePdfPreview } from '../components/InvoicePdfPreview';
 import { PdfPreviewFrame } from '../components/PdfPreviewFrame';
@@ -10,6 +10,7 @@ import { getSettings } from '../db/settings';
 import { SettingsRecord, PaymentMethod as SettingsPaymentMethod } from '../types/settings';
 import { getAsset } from '../db/assets';
 import { readLogoCache, readSettingsCache } from '../utils/settingsCache';
+import { getNextInvoiceNumber } from '../utils/invoiceNumber';
 
 type BuilderStepId = 'client' | 'items' | 'payment';
 
@@ -430,7 +431,9 @@ export const InvoiceBuilderPage: React.FC = () => {
   const [items, setItems] = useState<InvoiceItemDraft[]>([
     { id: 'item-0', name: '', quantity: '', price: '' }
   ]);
+  const draftStorageKey = 'invoiceBuilderDraft';
   const itemDraftStorageKey = 'invoiceBuilderDraftItems';
+  const hasLoadedDraft = useRef(false);
   const totalSteps = builderSteps.length;
   const stepOrder = useMemo(() => builderSteps.map((step) => step.id), []);
   const stepParam = searchParams.get('step') || stepOrder[0];
@@ -546,15 +549,12 @@ export const InvoiceBuilderPage: React.FC = () => {
     setSearchParams({ step: next });
   }, [setSearchParams, stepIndex, stepOrder, totalSteps]);
 
-  const handleGenerate = useCallback(() => {
+  const handleGenerate = useCallback(async () => {
     if (isGenerating || !isClientValid || !isItemsValid) return;
     setIsGenerating(true);
     const now = new Date();
     const invoiceId = crypto.randomUUID ? crypto.randomUUID() : `inv-${Date.now()}`;
-    const invoiceNumber = `INV-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-      2,
-      '0'
-    )}${String(now.getDate()).padStart(2, '0')}`;
+    const invoiceNumber = await getNextInvoiceNumber();
     const invoiceRecord = {
       id: invoiceId,
       invoiceNumber,
@@ -617,10 +617,61 @@ export const InvoiceBuilderPage: React.FC = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const stored = window.sessionStorage.getItem(itemDraftStorageKey);
-      if (!stored) return;
-      const parsed = JSON.parse(stored) as InvoiceItemDraft[];
-      if (!Array.isArray(parsed) || parsed.length === 0) return;
+      const storedDraft = window.sessionStorage.getItem(draftStorageKey);
+      if (storedDraft) {
+        const parsed = JSON.parse(storedDraft) as {
+          currency?: 'NGN' | 'USD' | 'GBP' | 'EUR';
+          paymentMethod?: 'bank' | 'crypto' | 'link';
+          client?: ClientDraft;
+          clientPhone?: string;
+          notes?: string;
+          includeNotes?: boolean;
+          includeDiscount?: boolean;
+          discountAmount?: string;
+          items?: InvoiceItemDraft[];
+        };
+        if (parsed.currency) setCurrency(parsed.currency);
+        if (parsed.paymentMethod) setPaymentMethod(parsed.paymentMethod);
+        if (parsed.client) {
+          setClient({
+            name: parsed.client.name ?? '',
+            email: parsed.client.email ?? '',
+            address: parsed.client.address ?? ''
+          });
+        }
+        if (typeof parsed.clientPhone === 'string') setClientPhone(parsed.clientPhone);
+        if (typeof parsed.notes === 'string') setNotes(parsed.notes);
+        if (typeof parsed.includeNotes === 'boolean') setIncludeNotes(parsed.includeNotes);
+        if (typeof parsed.includeDiscount === 'boolean') setIncludeDiscount(parsed.includeDiscount);
+        if (typeof parsed.discountAmount === 'string') setDiscountAmount(parsed.discountAmount);
+        if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+          setItems(
+            parsed.items.map((item, index) => ({
+              id: item.id || `item-${index}`,
+              name: item.name ?? '',
+              quantity: item.quantity ?? '',
+              price: item.price ?? ''
+            }))
+          );
+        }
+        hasLoadedDraft.current = true;
+        return;
+      }
+    } catch {
+      // ignore malformed session storage
+    }
+
+    try {
+      const storedItems = window.sessionStorage.getItem(itemDraftStorageKey);
+      if (!storedItems) {
+        hasLoadedDraft.current = true;
+        return;
+      }
+      const parsed = JSON.parse(storedItems) as InvoiceItemDraft[];
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        hasLoadedDraft.current = true;
+        return;
+      }
       setItems(
         parsed.map((item, index) => ({
           id: item.id || `item-${index}`,
@@ -631,17 +682,41 @@ export const InvoiceBuilderPage: React.FC = () => {
       );
     } catch {
       // ignore malformed session storage
+    } finally {
+      hasLoadedDraft.current = true;
     }
   }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!hasLoadedDraft.current) return;
     try {
-      window.sessionStorage.setItem(itemDraftStorageKey, JSON.stringify(items));
+      const draft = {
+        currency,
+        paymentMethod,
+        client,
+        clientPhone,
+        notes,
+        includeNotes,
+        includeDiscount,
+        discountAmount,
+        items
+      };
+      window.sessionStorage.setItem(draftStorageKey, JSON.stringify(draft));
     } catch {
       // ignore storage failures
     }
-  }, [items]);
+  }, [
+    client,
+    clientPhone,
+    currency,
+    discountAmount,
+    includeDiscount,
+    includeNotes,
+    items,
+    notes,
+    paymentMethod
+  ]);
 
   useEffect(() => {
     if (!ready) return;

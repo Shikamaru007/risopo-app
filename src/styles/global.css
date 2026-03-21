@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Google Sans";
+  src: url("/fonts/GoogleSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Google Sans";
+  src: url("/fonts/GoogleSans-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Google Sans Mono";
+  src: url("/fonts/GoogleSansMono-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   background-color: #fafafa;
@@ -12,7 +36,7 @@
 }
 
 body {
-  font-family: "Google Sans", Inter, system-ui, sans-serif;
+  font-family: "Google Sans", system-ui, sans-serif;
   background: #fafafa;
   color: #0f172a;
   min-height: 100vh;

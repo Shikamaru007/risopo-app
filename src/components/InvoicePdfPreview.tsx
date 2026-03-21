@@ -110,6 +110,7 @@ export interface InvoicePdfPreviewProps {
   showSkeleton?: boolean;
   discountPercent?: number;
   showDiscount?: boolean;
+  useFallback?: boolean;
 }
 
 export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
@@ -122,9 +123,10 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
   className,
   showSkeleton = false,
   discountPercent,
-  showDiscount = true
+  showDiscount = true,
+  useFallback = true
 }) => {
-  const items = invoice?.items?.length ? invoice.items : fallbackItems;
+  const items = invoice?.items?.length ? invoice.items : useFallback ? fallbackItems : [];
   const subtotal =
     typeof invoice?.subtotal === 'number'
       ? invoice.subtotal
@@ -139,18 +141,29 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
   const currencyCode = invoice?.currency || profile?.defaultCurrency || 'NGN';
   const currency = currencyMeta(currencyCode);
   const paymentLines = resolvePaymentLines(paymentMethod);
-  const showPaymentSkeleton = !paymentLines;
+  const showPaymentBlock = Boolean(paymentLines || showSkeleton);
+  const showPaymentSkeleton = showPaymentBlock && !paymentLines;
 
-  const fromNameValue = profile?.businessName?.trim() || (showSkeleton ? '' : fallbackFrom.name);
-  const fromEmailValue = profile?.businessEmail?.trim() || (showSkeleton ? '' : fallbackFrom.email);
-  const fromPhoneValue = profile?.phone?.trim() || (showSkeleton ? '' : fallbackFrom.phone);
+  const fromNameValue =
+    profile?.businessName?.trim() || (showSkeleton ? '' : useFallback ? fallbackFrom.name : '');
+  const fromEmailValue =
+    profile?.businessEmail?.trim() || (showSkeleton ? '' : useFallback ? fallbackFrom.email : '');
+  const fromPhoneValue =
+    profile?.phone?.trim() || (showSkeleton ? '' : useFallback ? fallbackFrom.phone : '');
 
-  const toName = invoice?.client?.name?.trim() || (showSkeleton ? '' : fallbackTo.name);
-  const toEmail = invoice?.client?.email?.trim() || (showSkeleton ? '' : fallbackTo.email);
+  const toName =
+    invoice?.client?.name?.trim() || (showSkeleton ? '' : useFallback ? fallbackTo.name : '');
+  const toEmail =
+    invoice?.client?.email?.trim() || (showSkeleton ? '' : useFallback ? fallbackTo.email : '');
   const toPhone =
-    clientPhone || invoice?.client?.address?.trim() || (showSkeleton ? '' : fallbackTo.phone);
+    clientPhone ||
+    invoice?.client?.address?.trim() ||
+    (showSkeleton ? '' : useFallback ? fallbackTo.phone : '');
 
-  const issueDate = formatDate(invoice?.issueDate, '16.04.2026');
+  const issueDate = formatDate(
+    invoice?.issueDate,
+    useFallback && !showSkeleton ? '16.04.2026' : ''
+  );
   const rawNotes = invoice?.refundPolicy ?? invoice?.notes;
   const refundPolicy = showSkeleton ? rawNotes : rawNotes || profile?.refundPolicy;
   const resolvedDiscountPercent =
@@ -161,6 +174,7 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
         : 0;
   const showAmountSkeleton =
     showSkeleton && items.every((item) => !item.name && item.quantity === 0 && item.unitPrice === 0);
+  const isPaymentHighlight = Boolean(paymentMethod?.type);
 
   const SkeletonLine: React.FC<{ width: string; height?: string; className?: string }> = ({
     width,
@@ -175,119 +189,121 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
 
   return (
     <div
-      className={`relative h-[842px] w-[595px] bg-white p-[44px] text-[#787c7d] ${className || ''}`}
+      className={`relative h-[842px] w-[595px] bg-white p-[40px] text-[#787c7d] ${className || ''}`}
     >
       <div className="flex h-full w-full flex-col items-start justify-between">
         <div className="flex w-[507px] flex-1 flex-col justify-between">
-          <div className="flex flex-col gap-8">
-            <div className="flex items-start justify-between">
-              <div className="flex h-[64px] w-[64px] items-center justify-center overflow-hidden">
+          <div className="flex flex-col gap-6">
+            <div className="grid grid-cols-[auto_1fr] items-start gap-8">
+              <div className="inline-flex max-h-[69px] max-w-[276px] items-center overflow-hidden rounded-[8px] self-start -mt-[2px]">
                 <img
                   alt="Company logo"
-                  className="h-[16px] w-[64px] object-contain"
+                  className="h-auto max-h-[69px] w-auto max-w-[276px] object-contain"
                   src={logoUrl || risopoLogo}
                 />
               </div>
-              <div className="flex flex-col items-end justify-center">
-                <div className="text-[45px] font-semibold leading-[54px] text-[#575757]">
+              <div className="flex flex-col items-end justify-start self-start -mt-[4px]">
+                <div className="text-[38px] font-semibold leading-[38px] text-[#575757]">
                   Invoice
                 </div>
-                <div className="flex items-center justify-end gap-2 text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                <div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
                   <div>Invoice no:</div>
-                  <div>{invoice?.invoiceNumber || '#INV-103'}</div>
+                  <div className="text-[#7d8288]">
+                    {invoice?.invoiceNumber || '#INV-103'}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex w-[292px] items-center justify-between">
+            <div className="grid w-[372px] grid-cols-[170px_1fr] items-center gap-12">
               <div className="flex w-[71px] flex-col items-start gap-1">
-                <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                <div className="text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
                   Date
                 </div>
-                <div className="text-[12px] text-[#5f6368]">{issueDate}</div>
+                <div className="text-[12px] text-[#5f6368] font-medium">{issueDate}</div>
               </div>
               <div className="flex w-[71px] flex-col items-start gap-1">
-                <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                <div className="text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
                   Currency
                 </div>
-                <div className="text-[12px] text-[#5f6368]">{currency.label}</div>
+                <div className="text-[12px] text-[#5f6368] font-medium">{currency.label}</div>
               </div>
             </div>
 
-            <div className="flex w-[342px] items-start justify-between">
+            <div className="grid w-[372px] grid-cols-[170px_1fr] items-start gap-12">
               <div className="flex flex-col items-start gap-1">
-                <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                <div className="text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
                   From
                 </div>
-                <div className="flex flex-col items-start gap-0.5">
-                  <div className="text-[12px] text-[#5f6368]">
+                <div className="flex flex-col items-start gap-[1px]">
+                  <div className="text-[12px] text-[#5f6368] font-medium">
                     {fromNameValue ? (
                       fromNameValue
                     ) : showSkeleton ? (
                       <SkeletonLine width="140px" height="10px" className="animate-pulse" />
-                    ) : (
+                    ) : useFallback ? (
                       '—'
-                    )}
+                    ) : null}
                   </div>
-                  <div className="text-[12px] text-[#5f6368]">
+                  <div className="text-[12px] text-[#5f6368] font-medium">
                     {fromEmailValue ? (
                       fromEmailValue
                     ) : showSkeleton ? (
                       <SkeletonLine width="120px" height="10px" className="animate-pulse" />
-                    ) : (
+                    ) : useFallback ? (
                       '—'
-                    )}
+                    ) : null}
                   </div>
-                  <div className="text-[12px] text-[#5f6368]">
+                  <div className="text-[12px] text-[#5f6368] font-medium">
                     {fromPhoneValue ? (
                       fromPhoneValue
                     ) : showSkeleton ? (
                       <SkeletonLine width="110px" height="10px" className="animate-pulse" />
-                    ) : (
+                    ) : useFallback ? (
                       '—'
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>
               <div className="flex flex-col items-start gap-1">
-                <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                <div className="text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
                   To
                 </div>
-                <div className="flex flex-col items-start gap-0.5">
-                  <div className="text-[12px] text-[#5f6368]">
+                <div className="flex flex-col items-start gap-[1px]">
+                  <div className="text-[12px] text-[#5f6368] font-medium">
                     {toName ? (
                       toName
                     ) : showSkeleton ? (
                       <SkeletonLine width="140px" height="10px" className="animate-pulse" />
-                    ) : (
+                    ) : useFallback ? (
                       '—'
-                    )}
+                    ) : null}
                   </div>
-                  <div className="text-[12px] text-[#5f6368]">
+                  <div className="text-[12px] text-[#5f6368] font-medium">
                     {toEmail ? (
                       toEmail
                     ) : showSkeleton ? (
                       <SkeletonLine width="120px" height="10px" className="animate-pulse" />
-                    ) : (
+                    ) : useFallback ? (
                       '—'
-                    )}
+                    ) : null}
                   </div>
-                  <div className="text-[12px] text-[#5f6368]">
+                  <div className="text-[12px] text-[#5f6368] font-medium">
                     {toPhone ? (
                       toPhone
                     ) : showSkeleton ? (
                       <SkeletonLine width="110px" height="10px" className="animate-pulse" />
-                    ) : (
+                    ) : useFallback ? (
                       '—'
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 flex flex-col items-end gap-6">
-              <div className="flex w-full flex-col gap-3">
-                <div className="flex items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+            <div className="mt-3 flex flex-col items-end gap-5">
+              <div className="flex w-full flex-col">
+                <div className="flex items-center justify-between border-b border-[#e6e6e6] pb-2 text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
                   <div className="flex-1">Item / Service</div>
                   <div className="flex items-center gap-3">
                     <div className="w-[117.58px] text-right">Unit Cost</div>
@@ -295,7 +311,7 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                     <div className="w-[82.51px] text-right">Amount</div>
                   </div>
                 </div>
-                <div className="flex flex-col gap-6 text-[12px] text-[#5f6368]">
+                <div className="mt-3 flex flex-col gap-3.5 text-[12px] text-[#5f6368] font-medium">
                   {items.map((item) => {
                     const description = item.description || item.name;
                     const amount = item.total ?? item.unitPrice * item.quantity;
@@ -313,7 +329,7 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                           )}
                         </div>
                         <div className="flex items-center gap-3">
-                          <div className="w-[117.58px] text-right tracking-[0.2px]">
+                          <div className="w-[117.58px] text-right tracking-[0.2px] tabular-nums">
                             {showPriceSkeleton ? (
                               <SkeletonLine
                                 width="60px"
@@ -324,7 +340,7 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                               formatNumber(item.unitPrice)
                             )}
                           </div>
-                          <div className="w-[49.92px] text-right">
+                          <div className="w-[49.92px] text-right tabular-nums">
                             {showQtySkeleton ? (
                               <SkeletonLine
                                 width="24px"
@@ -335,7 +351,7 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                               formatNumber(item.quantity, 0)
                             )}
                           </div>
-                          <div className="w-[82.51px] text-right tracking-[0.2px]">
+                          <div className="w-[82.51px] text-right tracking-[0.2px] tabular-nums">
                             {showAmount ? (
                               formatNumber(amount)
                             ) : (
@@ -353,14 +369,14 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                 </div>
               </div>
 
-              <div className="flex w-[247px] flex-col items-end gap-3">
+              <div className="flex w-[247px] flex-col items-end gap-2">
                 <div className="w-full border-y border-[#e6e6e6] py-3">
                   <div className="flex w-full flex-col items-start gap-2">
-                    <div className="flex w-full items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                    <div className="flex w-full items-center justify-between text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
                       <div>Subtotal</div>
                       <div className="flex items-center gap-1">
                         <div>{currency.symbol}</div>
-                        <div className="text-right text-[12px] text-[#5f6368] tracking-[0.2px] font-['Google_Sans',sans-serif]">
+                        <div className="text-right text-[12px] text-[#5f6368] tracking-[0.2px] font-['Google Sans',sans-serif] font-medium tabular-nums">
                           {showAmountSkeleton ? (
                             <SkeletonLine
                               width="70px"
@@ -373,11 +389,11 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                         </div>
                       </div>
                     </div>
-                    <div className="flex w-full items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                    <div className="flex w-full items-center justify-between text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
                       <div>Discount ({resolvedDiscountPercent.toFixed(2)}%)</div>
                       <div className="flex items-center gap-1">
                         <div>-{currency.symbol}</div>
-                        <div className="text-right text-[12px] text-[#5f6368] tracking-[0.2px] font-['Google_Sans',sans-serif]">
+                        <div className="text-right text-[12px] text-[#5f6368] tracking-[0.2px] font-['Google Sans',sans-serif] font-medium tabular-nums">
                           {showAmountSkeleton ? (
                             <SkeletonLine
                               width="60px"
@@ -392,11 +408,11 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                     </div>
                   </div>
                 </div>
-                <div className="flex w-full items-center justify-between text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+                <div className="flex w-full items-center justify-between text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
                   <div>Total Due</div>
                   <div className="flex items-center gap-1">
                     <div className="text-[12px]">{currency.symbol}</div>
-                    <div className="text-right text-[16px] font-medium text-[#575757] tracking-[0.5px] font-['Google_Sans',sans-serif]">
+                    <div className="text-right text-[18px] font-semibold text-[#575757] tracking-[0.5px] font-['Google Sans',sans-serif] tabular-nums">
                       {showAmountSkeleton ? (
                         <SkeletonLine width="78px" height="12px" className="ml-auto animate-pulse" />
                       ) : (
@@ -409,43 +425,58 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
             </div>
           </div>
 
+        </div>
+
+        <div className="flex w-full items-end justify-between">
           <div
-            className={`flex w-[377px] flex-col items-start ${
-              refundPolicy || (showSkeleton && rawNotes !== undefined) ? 'gap-4' : 'gap-0'
+            className={`flex w-full max-w-[280px] flex-col items-start ${
+              refundPolicy || (showSkeleton && rawNotes !== undefined) ? 'gap-3' : 'gap-2'
             }`}
           >
-            <div className="flex w-[247px] flex-col gap-1">
-              <div className="text-[10px] text-[#9599a0] font-['Google_Sans_Mono',monospace]">
+            <div className="flex w-full flex-col gap-1">
+              <div className="text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
                 Payment Details
               </div>
-              <div className="flex items-start justify-between rounded-[20px] bg-[#f5f5f5] p-[12px]">
-                <div className="flex w-[174px] flex-col gap-0.5">
-                  {showPaymentSkeleton ? (
-                    <>
-                      <SkeletonLine width="140px" height="10px" className="animate-pulse" />
-                      <SkeletonLine width="110px" height="10px" className="animate-pulse" />
-                      <SkeletonLine width="120px" height="10px" className="animate-pulse" />
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-[10px] font-medium text-[#434343] tracking-[0.2px]">
-                        {paymentLines.line1 || '—'}
-                      </div>
-                      <div className="text-[10px] text-[#787c7d]">
-                        {paymentLines.line2 || '—'}
-                      </div>
-                      {paymentLines.line3 ? (
-                        <div className="text-[10px] text-[#787c7d]">{paymentLines.line3}</div>
-                      ) : null}
-                    </>
-                  )}
+              {showPaymentBlock && (
+                <div className="mt-[2px] flex items-start justify-between py-[4px]">
+                  <div className="flex w-[190px] flex-col gap-0.5">
+                    {showPaymentSkeleton ? (
+                      <>
+                        <SkeletonLine width="140px" height="10px" className="animate-pulse" />
+                        <SkeletonLine width="110px" height="10px" className="animate-pulse" />
+                        <SkeletonLine width="120px" height="10px" className="animate-pulse" />
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          className={`text-[10px] font-medium tracking-[0.2px] font-['Google Sans',sans-serif] ${
+                            isPaymentHighlight ? 'text-[var(--brand-blue)]' : 'text-[#434343]'
+                          }`}
+                        >
+                          <span data-pdf-payment-line="main">
+                            {paymentLines?.line1 || '—'}
+                          </span>
+                        </div>
+                        <div
+                          className="text-[10px] text-[#787c7d] font-['Google Sans',sans-serif]"
+                          data-pdf-payment-line="sub1"
+                        >
+                          {paymentLines?.line2 || '—'}
+                        </div>
+                        {paymentLines?.line3 ? (
+                          <div
+                            className="text-[10px] text-[#787c7d] font-['Google Sans',sans-serif]"
+                            data-pdf-payment-line="sub2"
+                          >
+                            {paymentLines.line3}
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                  {!showPaymentSkeleton && null}
                 </div>
-                {!showPaymentSkeleton && (
-                  <span className="material-symbols-rounded text-[12px] text-[#9599a0]">
-                    content_copy
-                  </span>
-                )}
-              </div>
+              )}
             </div>
             {(refundPolicy || (showSkeleton && rawNotes !== undefined)) && (
               <div className="text-[10px] text-[#a4a4a4]">
@@ -457,12 +488,13 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
               </div>
             )}
           </div>
-        </div>
 
-        <div className="w-full text-right text-[10px] text-[#f0f0f0] font-['Google_Sans_Mono',monospace]">
-          risopo.com
+          <div className="text-right text-[10px] text-[#f0f0f0] font-['Google Sans Mono',monospace]">
+            risopo.com
+          </div>
         </div>
       </div>
     </div>
   );
 };
+

@@ -3,9 +3,11 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { navItems, NavIconName } from '../utils/nav';
 import risopoLogo from '../assets/risopo.svg';
 import { buildPdf } from '../lib/pdf';
-import { addInvoice } from '../db/invoices';
+import { addInvoice, clearInvoices } from '../db/invoices';
+import { resetInvoiceNumberCounter } from '../utils/invoiceNumber';
 import { useDexieReady } from '../hooks/useDexieReady';
 import { InvoiceRecord } from '../types/invoice';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -146,6 +148,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [showClearInvoicesModal, setShowClearInvoicesModal] = useState(false);
 
   const previewInvoice = useMemo(() => {
     if (!isBuilderPreview) return null;
@@ -172,12 +176,62 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
   };
 
-  const handlePreviewDownload = () => {
+  const handlePreviewDownload = async () => {
     if (!previewInvoice || downloading) return;
     setDownloading(true);
-    const doc = buildPdf(previewInvoice);
-    doc.save(`risopo-${previewInvoice.invoiceNumber}.pdf`);
-    window.setTimeout(() => setDownloading(false), 500);
+    try {
+      if (ready && !saved && !saving) {
+        setSaving(true);
+        try {
+          await addInvoice(previewInvoice);
+          setSaved(true);
+        } catch (error) {
+          console.error('Failed to save invoice on download.', error);
+        } finally {
+          setSaving(false);
+        }
+      }
+      const previewElement =
+        document.getElementById('invoice-preview-pdf') ||
+        document.getElementById('invoice-preview');
+      const timeoutMs = 12000;
+      const doc = await Promise.race([
+        buildPdf(previewInvoice, { element: previewElement }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('pdf-timeout')), timeoutMs)
+        )
+      ]).catch(async (error) => {
+        console.error('PDF build failed or timed out, using data PDF.', error);
+        return buildPdf(previewInvoice);
+      });
+      const filename = `risopo-${previewInvoice.invoiceNumber}.pdf`;
+      try {
+        doc.save(filename);
+      } catch (error) {
+        // Fallback to manual download if jsPDF save fails.
+        console.error('PDF save failed, using blob download.', error);
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleClearInvoices = async () => {
+    if (!ready || clearing) return;
+    setClearing(true);
+    try {
+      await clearInvoices();
+      resetInvoiceNumberCounter();
+    } finally {
+      setClearing(false);
+    }
   };
 
   useEffect(() => {
@@ -188,6 +242,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (pathname !== '/dashboard') return;
+    try {
+      window.sessionStorage.removeItem('invoiceBuilderDraft');
+      window.sessionStorage.removeItem('invoiceBuilderDraftItems');
+    } catch {
+      // ignore storage failures
+    }
+  }, [pathname]);
 
   return (
     <div className="relative min-h-screen bg-surface text-ink">
@@ -279,6 +344,23 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   <span className="icon material-symbols-rounded text-[20px]">home</span>
                 </Link>
               )}
+              {pathname === '/invoices' && (
+                <button
+                  type="button"
+                  onClick={() => setShowClearInvoicesModal(true)}
+                  disabled={!ready || clearing}
+                  aria-label="Clear all invoices"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-xl text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60 md:h-11 md:w-11"
+                >
+                  {clearing ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  ) : (
+                    <span className="icon material-symbols-rounded text-[20px]">
+                      delete_forever
+                    </span>
+                  )}
+                </button>
+              )}
               {!isBuilderPreview && (
                 <button
                   aria-label="Toggle theme"
@@ -307,6 +389,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         </main>
       </div>
       {!hideNav && <BottomNav />}
+      <ConfirmationModal
+        open={showClearInvoicesModal}
+        title="Clear all invoices?"
+        description="This will permanently delete all saved invoices on this device."
+        confirmLabel="Delete all"
+        destructive
+        loading={clearing}
+        onCancel={() => setShowClearInvoicesModal(false)}
+        onConfirm={async () => {
+          await handleClearInvoices();
+          setShowClearInvoicesModal(false);
+        }}
+      />
     </div>
   );
 };

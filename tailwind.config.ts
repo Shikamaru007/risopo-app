@@ -9,7 +9,7 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ['"Google Sans"', 'Inter', 'system-ui', 'sans-serif']
+        sans: ['"Google Sans"', 'system-ui', 'sans-serif']
       },
       colors: {
         surface: '#fafafa',

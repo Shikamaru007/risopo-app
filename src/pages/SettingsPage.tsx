@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addAsset, getAsset } from '../db/assets';
 import { db } from '../db';
-import { getSettings, upsertSettings } from '../db/settings';
+import { clearSettings, getSettings, upsertSettings } from '../db/settings';
 import { PaymentMethod } from '../types/settings';
 import { SettingsRecord } from '../types/settings';
 import { useDexieReady } from '../hooks/useDexieReady';
 import { FieldLabel, SelectInput, TextInput } from '../components/FormFields';
-import { clearLogoCache, readLogoCache, readSettingsCache, writeLogoCache, writeSettingsCache } from '../utils/settingsCache';
+import { clearLogoCache, clearSettingsCache, readLogoCache, readSettingsCache, writeLogoCache, writeSettingsCache } from '../utils/settingsCache';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 
 type SettingsForm = {
   businessName: string;
@@ -45,6 +46,8 @@ export const SettingsPage: React.FC = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const savingRef = useRef(false);
@@ -329,6 +332,31 @@ export const SettingsPage: React.FC = () => {
     await runSave(payload, savedAt);
   }, [buildPayload, form, runSave]);
 
+  const handleClearSettings = useCallback(async () => {
+    if (!ready || clearing) return;
+    setClearing(true);
+    try {
+      clearLogoCache();
+      clearSettingsCache();
+      setLogoPreview(null);
+      setForm(emptyForm);
+      setDraftMethods([]);
+      setBankSaveAttempts([]);
+      setCryptoSaveAttempts([]);
+      setLinkSaveAttempts([]);
+      setLastSavedAt(null);
+      setShowSaved(false);
+      await clearSettings();
+      try {
+        window.dispatchEvent(new CustomEvent('settings-updated'));
+      } catch {
+        // ignore dispatch failures
+      }
+    } finally {
+      setClearing(false);
+    }
+  }, [clearing, ready]);
+
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
@@ -549,17 +577,20 @@ export const SettingsPage: React.FC = () => {
                       type="button"
                       onClick={() => saveDraftMethod(method.id)}
                       disabled={!canSave}
-                      className={`flex h-7 w-7 items-center justify-center rounded-full ${
-                        canSave ? 'text-slate-400 hover:text-slate-600' : 'text-slate-300'
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                        canSave
+                          ? 'bg-[var(--brand-blue)] text-white hover:bg-[var(--brand-blue-dark)]'
+                          : 'bg-slate-200 text-slate-400'
                       }`}
                       aria-label="Save payment method"
                     >
-                      <span className="icon material-symbols-rounded text-[18px]">save</span>
+                      <span className="icon material-symbols-rounded text-[16px]">save</span>
+                      Save
                     </button>
                     <button
                       type="button"
                       onClick={() => removeDraftMethod(method.id)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-600"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-600"
                       aria-label="Remove payment method"
                     >
                       <span className="icon material-symbols-rounded text-[18px]">remove</span>
@@ -658,17 +689,20 @@ export const SettingsPage: React.FC = () => {
                       type="button"
                       onClick={() => saveDraftMethod(method.id)}
                       disabled={!canSave}
-                      className={`flex h-7 w-7 items-center justify-center rounded-full ${
-                        canSave ? 'text-slate-400 hover:text-slate-600' : 'text-slate-300'
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                        canSave
+                          ? 'bg-[var(--brand-blue)] text-white hover:bg-[var(--brand-blue-dark)]'
+                          : 'bg-slate-200 text-slate-400'
                       }`}
                       aria-label="Save payment method"
                     >
-                      <span className="icon material-symbols-rounded text-[18px]">save</span>
+                      <span className="icon material-symbols-rounded text-[16px]">save</span>
+                      Save
                     </button>
                     <button
                       type="button"
                       onClick={() => removeDraftMethod(method.id)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-600"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-600"
                       aria-label="Remove payment method"
                     >
                       <span className="icon material-symbols-rounded text-[18px]">remove</span>
@@ -763,17 +797,20 @@ export const SettingsPage: React.FC = () => {
                       type="button"
                       onClick={() => saveDraftMethod(method.id)}
                       disabled={!canSave}
-                      className={`flex h-7 w-7 items-center justify-center rounded-full ${
-                        canSave ? 'text-slate-400 hover:text-slate-600' : 'text-slate-300'
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                        canSave
+                          ? 'bg-[var(--brand-blue)] text-white hover:bg-[var(--brand-blue-dark)]'
+                          : 'bg-slate-200 text-slate-400'
                       }`}
                       aria-label="Save payment method"
                     >
-                      <span className="icon material-symbols-rounded text-[18px]">save</span>
+                      <span className="icon material-symbols-rounded text-[16px]">save</span>
+                      Save
                     </button>
                     <button
                       type="button"
                       onClick={() => removeDraftMethod(method.id)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-600"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-600"
                       aria-label="Remove payment method"
                     >
                       <span className="icon material-symbols-rounded text-[18px]">remove</span>
@@ -815,14 +852,14 @@ export const SettingsPage: React.FC = () => {
       </section>
 
       <div className="flex items-center justify-between">
-        <div
-          className={`rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600 transition-opacity ${
-            showSaved ? 'opacity-100' : 'opacity-0'
-          }`}
-          aria-live="polite"
+        <button
+          type="button"
+          onClick={() => setShowClearModal(true)}
+          disabled={!ready || clearing}
+          className="rounded-full border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Saved {savedTimeLabel ? `at ${savedTimeLabel}` : ''}
-        </div>
+          {clearing ? 'Clearing…' : 'Clear settings'}
+        </button>
         <button
           type="button"
           onClick={handleSave}
@@ -837,6 +874,28 @@ export const SettingsPage: React.FC = () => {
             'Save settings'
           )}
         </button>
+      </div>
+      <ConfirmationModal
+        open={showClearModal}
+        title="Clear all settings?"
+        description="This will remove saved business details, payment methods, and logo on this device."
+        confirmLabel="Clear settings"
+        destructive
+        loading={clearing}
+        onCancel={() => setShowClearModal(false)}
+        onConfirm={async () => {
+          await handleClearSettings();
+          setShowClearModal(false);
+        }}
+      />
+      <div
+        className={`fixed left-1/2 top-6 z-[90] flex -translate-x-1/2 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition-all ${
+          showSaved ? 'opacity-100 translate-y-0' : 'pointer-events-none opacity-0 -translate-y-2'
+        }`}
+        aria-live="polite"
+      >
+        <span className="icon material-symbols-rounded text-[18px]">check_circle</span>
+        Saved {savedTimeLabel ? `at ${savedTimeLabel}` : ''}
       </div>
     </div>
   );
