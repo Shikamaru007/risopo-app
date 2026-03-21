@@ -11,6 +11,7 @@ import { SettingsRecord, PaymentMethod as SettingsPaymentMethod } from '../types
 import { getAsset } from '../db/assets';
 import { readLogoCache, readSettingsCache } from '../utils/settingsCache';
 import { getNextInvoiceNumber } from '../utils/invoiceNumber';
+import { getInvoice } from '../db/invoices';
 
 type BuilderStepId = 'client' | 'items' | 'payment';
 
@@ -440,6 +441,7 @@ export const InvoiceBuilderPage: React.FC = () => {
   const stepIndex = Math.max(0, stepOrder.indexOf(stepParam as BuilderStepId));
   const currentStep = builderSteps[stepIndex];
   const isFinalStep = stepIndex === totalSteps - 1;
+  const duplicateId = searchParams.get('duplicate');
   const progress = useMemo(
     () => (totalSteps === 0 ? 0 : Math.round(((stepIndex + 1) / totalSteps) * 100)),
     [stepIndex, totalSteps]
@@ -565,7 +567,8 @@ export const InvoiceBuilderPage: React.FC = () => {
       client: {
         name: client.name.trim() || 'Unnamed client',
         email: client.email.trim() || undefined,
-        address: client.address.trim() || undefined
+        address: client.address.trim() || undefined,
+        phone: clientPhone.trim() || undefined
       },
       items: normalizedItems,
       subtotal,
@@ -686,6 +689,67 @@ export const InvoiceBuilderPage: React.FC = () => {
       hasLoadedDraft.current = true;
     }
   }, []);
+
+  useEffect(() => {
+    if (!ready || !duplicateId) return;
+    let mounted = true;
+    getInvoice(duplicateId)
+      .then((invoice) => {
+        if (!mounted || !invoice) return;
+        const allowedCurrencies = ['NGN', 'USD', 'GBP', 'EUR'] as const;
+        const nextCurrency = allowedCurrencies.includes(
+          invoice.currency as (typeof allowedCurrencies)[number]
+        )
+          ? (invoice.currency as (typeof allowedCurrencies)[number])
+          : 'NGN';
+        const rawPhone = invoice.client?.phone?.trim() || '';
+        const addressCandidate = invoice.client?.address?.trim() || '';
+        const digits = addressCandidate.replace(/\D/g, '');
+        const phoneFromAddress =
+          !rawPhone && digits.length >= 7 && digits.length <= 15 ? addressCandidate : '';
+        const clientPhoneValue = rawPhone || phoneFromAddress;
+
+        setCurrency(nextCurrency);
+        setPaymentMethod(invoice.paymentMethod || 'bank');
+        setClient({
+          name: invoice.client?.name ?? '',
+          email: invoice.client?.email ?? '',
+          address: invoice.client?.address ?? ''
+        });
+        setClientPhone(clientPhoneValue);
+        setNotes('');
+        setIncludeNotes(false);
+        setIncludeDiscount(false);
+        setDiscountAmount('');
+        setItems([{ id: 'item-0', name: '', quantity: '', price: '' }]);
+
+        try {
+          const draft = {
+            currency: nextCurrency,
+            paymentMethod: invoice.paymentMethod || 'bank',
+            client: {
+              name: invoice.client?.name ?? '',
+              email: invoice.client?.email ?? '',
+              address: invoice.client?.address ?? ''
+            },
+            clientPhone: clientPhoneValue,
+            notes: '',
+            includeNotes: false,
+            includeDiscount: false,
+            discountAmount: '',
+            items: [{ id: 'item-0', name: '', quantity: '', price: '' }]
+          };
+          window.sessionStorage.setItem(draftStorageKey, JSON.stringify(draft));
+          window.sessionStorage.removeItem(itemDraftStorageKey);
+        } catch {
+          // ignore storage failures
+        }
+      })
+      .catch(() => null);
+    return () => {
+      mounted = false;
+    };
+  }, [duplicateId, ready]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

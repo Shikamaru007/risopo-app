@@ -3,35 +3,20 @@ import { Link, useParams } from 'react-router-dom';
 import { getInvoice } from '../db/invoices';
 import { InvoiceRecord } from '../types/invoice';
 import { useDexieReady } from '../hooks/useDexieReady';
-
-const formatCurrency = (value: number, currency: string) => {
-  try {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 2
-    }).format(value);
-  } catch {
-    return `₦${value.toFixed(2)}`;
-  }
-};
-
-const formatDate = (value?: string) => {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return new Intl.DateTimeFormat('en-NG', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  }).format(date);
-};
+import { InvoicePdfPreview } from '../components/InvoicePdfPreview';
+import { PdfPreviewFrame } from '../components/PdfPreviewFrame';
+import { getSettings } from '../db/settings';
+import { SettingsRecord, PaymentMethod as SettingsPaymentMethod } from '../types/settings';
+import { getAsset } from '../db/assets';
+import { readLogoCache, readSettingsCache } from '../utils/settingsCache';
 
 export const InvoicePreviewPage: React.FC = () => {
   const { id } = useParams();
   const ready = useDexieReady();
   const [invoice, setInvoice] = useState<InvoiceRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<SettingsRecord | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready || !id) return;
@@ -51,21 +36,72 @@ export const InvoicePreviewPage: React.FC = () => {
     };
   }, [ready, id]);
 
-  const currency = useMemo(() => invoice?.currency || 'NGN', [invoice?.currency]);
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    const loadSettings = () => {
+      getSettings()
+        .then((result) => {
+          if (cancelled) return;
+          if (result) {
+            setSettings(result);
+            return;
+          }
+          const cached = readSettingsCache();
+          if (cached?.data) setSettings(cached.data);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          const cached = readSettingsCache();
+          if (cached?.data) {
+            setSettings(cached.data);
+          } else {
+            setSettings(null);
+          }
+        });
+    };
+    loadSettings();
+    const handleSettingsUpdated = () => loadSettings();
+    window.addEventListener('settings-updated', handleSettingsUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('settings-updated', handleSettingsUpdated);
+    };
+  }, [ready]);
+
+  useEffect(() => {
+    if (!ready || !settings?.logoId) {
+      setLogoUrl(null);
+      return;
+    }
+    getAsset(settings.logoId)
+      .then((asset) => {
+        const cachedLogo = readLogoCache(settings.logoId);
+        setLogoUrl(asset?.dataUrl ?? cachedLogo ?? null);
+      })
+      .catch(() => {
+        const cachedLogo = readLogoCache(settings.logoId);
+        setLogoUrl(cachedLogo ?? null);
+      });
+  }, [ready, settings?.logoId]);
+
+  const selectedPaymentDetails = useMemo<SettingsPaymentMethod | undefined>(() => {
+    if (!invoice) return undefined;
+    return settings?.paymentMethods?.find((method) => method.type === invoice.paymentMethod);
+  }, [invoice, settings?.paymentMethods]);
+
+  const hasProfileDetails = Boolean(
+    settings?.businessName?.trim() ||
+      settings?.businessEmail?.trim() ||
+      settings?.phone?.trim()
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-ink">Invoice preview</h2>
-          <p className="text-sm text-slate-500">Read-only preview for the selected invoice.</p>
-        </div>
-        <Link
-          to="/invoices"
-          className="text-sm font-semibold text-[var(--brand-blue)] transition-colors md:hover:text-[var(--brand-blue-dark)]"
-        >
-          Back to invoices
-        </Link>
+      <div className="sr-only">
+        <h2>Invoice preview</h2>
+        <p>Read-only preview for the selected invoice.</p>
+        <Link to="/invoices">Back to invoices</Link>
       </div>
 
       {loading && (
@@ -81,36 +117,20 @@ export const InvoicePreviewPage: React.FC = () => {
       )}
 
       {!loading && invoice && (
-        <section className="rounded-3xl border border-slate-100 bg-white p-6">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="space-y-2">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                {invoice.invoiceNumber}
-              </div>
-              <div className="text-2xl font-semibold text-ink">{invoice.client?.name}</div>
-              <div className="text-sm text-slate-500">
-                Created {formatDate(invoice.createdAt)}
-              </div>
+        <section className="rounded-[28px] border border-slate-100 bg-white/80 p-0 md:mx-auto md:w-fit">
+          <PdfPreviewFrame>
+            <div id="invoice-preview">
+              <InvoicePdfPreview
+                invoice={invoice}
+                clientPhone={invoice.client?.phone}
+                profile={settings ?? undefined}
+                paymentMethod={selectedPaymentDetails}
+                showSkeleton={!hasProfileDetails}
+                useFallback={false}
+                logoUrl={logoUrl ?? undefined}
+              />
             </div>
-            <div className="text-2xl font-semibold text-ink">
-              {formatCurrency(invoice.total, currency)}
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 text-sm text-slate-600 md:grid-cols-2">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Issue date
-              </div>
-              <div className="mt-1">{formatDate(invoice.issueDate)}</div>
-            </div>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Due date
-              </div>
-              <div className="mt-1">{formatDate(invoice.dueDate)}</div>
-            </div>
-          </div>
+          </PdfPreviewFrame>
         </section>
       )}
     </div>

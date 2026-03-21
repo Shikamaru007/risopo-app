@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { liveQuery } from 'dexie';
+import { useNavigate } from 'react-router-dom';
 import { Fab } from '../components/Fab';
 import { StatsCard } from '../components/StatsCard';
 import { InvoiceCard } from '../components/InvoiceCard';
 import { EmptyState } from '../components/EmptyState';
-import { listInvoices } from '../db/invoices';
+import { deleteInvoice, listInvoices } from '../db/invoices';
 import { InvoiceRecord } from '../types/invoice';
 import { useDexieReady } from '../hooks/useDexieReady';
+import { buildPdf } from '../lib/pdf';
+import { ConfirmationModal } from '../components/ConfirmationModal';
+import { prepareDuplicateDraft } from '../utils/duplicateFlow';
 
 const getGreeting = (now: Date) => {
   const hour = now.getHours();
@@ -17,7 +21,10 @@ const getGreeting = (now: Date) => {
 
 export const DashboardPage: React.FC = () => {
   const ready = useDexieReady();
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<InvoiceRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -39,6 +46,27 @@ export const DashboardPage: React.FC = () => {
     const currency = invoices[0]?.currency || 'NGN';
     return { totalInvoices, paidCount, pendingCount, currency };
   }, [invoices, now]);
+
+  const handleView = (invoice: InvoiceRecord) => {
+    navigate(`/invoices/${invoice.id}?mode=full`);
+  };
+
+  const handleDuplicate = async (invoice: InvoiceRecord) => {
+    if (!ready) return;
+    prepareDuplicateDraft(invoice);
+    navigate(`/builder?step=items&duplicate=${invoice.id}`);
+  };
+
+
+  const handleDownload = async (invoice: InvoiceRecord) => {
+    const doc = await buildPdf(invoice);
+    const filename = `risopo-${invoice.invoiceNumber || invoice.id}.pdf`;
+    doc.save(filename);
+  };
+
+  const handleDelete = (invoice: InvoiceRecord) => {
+    setDeleteTarget(invoice);
+  };
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -68,13 +96,40 @@ export const DashboardPage: React.FC = () => {
         ) : (
           <div className="mt-4 space-y-3">
             {invoices.slice(0, 3).map((invoice) => (
-              <InvoiceCard key={invoice.id} invoice={invoice} />
+              <InvoiceCard
+                key={invoice.id}
+                invoice={invoice}
+                onView={() => handleView(invoice)}
+                onDuplicate={() => handleDuplicate(invoice)}
+                onDownload={() => handleDownload(invoice)}
+                onDelete={() => handleDelete(invoice)}
+              />
             ))}
           </div>
         )}
       </section>
 
       <Fab to="/builder" />
+
+      <ConfirmationModal
+        open={Boolean(deleteTarget)}
+        title="Delete invoice?"
+        description="This action cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        loading={deleting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          setDeleting(true);
+          try {
+            await deleteInvoice(deleteTarget.id);
+          } finally {
+            setDeleting(false);
+            setDeleteTarget(null);
+          }
+        }}
+      />
     </div>
   );
 };

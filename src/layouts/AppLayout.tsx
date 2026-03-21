@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { navItems, NavIconName } from '../utils/nav';
 import risopoLogo from '../assets/risopo.svg';
 import { buildPdf } from '../lib/pdf';
-import { addInvoice, clearInvoices } from '../db/invoices';
+import { addInvoice, clearInvoices, getInvoice } from '../db/invoices';
 import { resetInvoiceNumberCounter } from '../utils/invoiceNumber';
 import { useDexieReady } from '../hooks/useDexieReady';
 import { InvoiceRecord } from '../types/invoice';
@@ -98,6 +98,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isBuilderPreview = pathname === '/builder/preview';
+  const invoiceMode = useMemo(() => {
+    if (pathname.startsWith('/invoices/') && pathname !== '/invoices') {
+      const params = new URLSearchParams(location.search);
+      return params.get('mode') || 'full';
+    }
+    return null;
+  }, [location.search, pathname]);
+  const isInvoiceFullPreview = invoiceMode === 'full';
   const headerTitle = pathname.startsWith('/invoices')
     ? 'Invoices'
     : pathname.startsWith('/settings')
@@ -110,8 +118,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const showLogo = headerTitle === '';
   const showBuilderBack = pathname === '/builder';
   const showPreviewBack = pathname === '/builder/preview';
+  const showInvoiceBack = isInvoiceFullPreview;
   const showNewInvoice = pathname === '/dashboard';
-  const hideNav = pathname.startsWith('/builder');
+  const hideNav = pathname.startsWith('/builder') || isInvoiceFullPreview;
   const showHomeButton = pathname === '/builder';
 
   const builderStepOrder = useMemo(() => ['client', 'items', 'payment'], []);
@@ -150,6 +159,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [downloading, setDownloading] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [showClearInvoicesModal, setShowClearInvoicesModal] = useState(false);
+  const [fullInvoice, setFullInvoice] = useState<InvoiceRecord | null>(null);
 
   const previewInvoice = useMemo(() => {
     if (!isBuilderPreview) return null;
@@ -165,6 +175,30 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
   }, [isBuilderPreview, location.state]);
 
+  useEffect(() => {
+    if (!ready || !isInvoiceFullPreview) {
+      setFullInvoice(null);
+      return;
+    }
+    const parts = pathname.split('/').filter(Boolean);
+    const id = parts[1];
+    if (!id) {
+      setFullInvoice(null);
+      return;
+    }
+    let mounted = true;
+    getInvoice(id)
+      .then((result) => {
+        if (mounted) setFullInvoice(result ?? null);
+      })
+      .catch(() => {
+        if (mounted) setFullInvoice(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isInvoiceFullPreview, pathname, ready]);
+
   const handlePreviewSave = async () => {
     if (!previewInvoice || !ready || saving || saved) return;
     setSaving(true);
@@ -175,6 +209,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       setSaving(false);
     }
   };
+
 
   const handlePreviewDownload = async () => {
     if (!previewInvoice || downloading) return;
@@ -223,6 +258,49 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
   };
 
+  const handleFullPreviewDownload = async () => {
+    if (!fullInvoice || downloading) return;
+    setDownloading(true);
+    try {
+      if (ready) {
+        try {
+          await addInvoice(fullInvoice);
+        } catch {
+          // already saved
+        }
+      }
+      const previewElement =
+        document.getElementById('invoice-preview-pdf') ||
+        document.getElementById('invoice-preview');
+      const timeoutMs = 12000;
+      const doc = await Promise.race([
+        buildPdf(fullInvoice, { element: previewElement }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('pdf-timeout')), timeoutMs)
+        )
+      ]).catch(async (error) => {
+        console.error('PDF build failed or timed out, using data PDF.', error);
+        return buildPdf(fullInvoice);
+      });
+      const filename = `risopo-${fullInvoice.invoiceNumber}.pdf`;
+      try {
+        doc.save(filename);
+      } catch (error) {
+        console.error('PDF save failed, using blob download.', error);
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+
   const handleClearInvoices = async () => {
     if (!ready || clearing) return;
     setClearing(true);
@@ -254,63 +332,109 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
   }, [pathname]);
 
+  // Share is disabled for now.
+
   return (
     <div className="relative min-h-screen bg-surface text-ink">
       {!hideNav && <DesktopNav />}
       <div className="flex-1">
         <header className="sticky top-0 z-30">
-          <div
-            className={`mx-auto flex items-center justify-between px-4 py-4 transition-all md:px-8 ${
-              scrolled
-                ? 'bg-gradient-to-b from-white/85 via-white/60 to-transparent backdrop-blur-md dark:from-black/70 dark:via-black/40 dark:to-transparent'
-                : 'bg-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              {showLogo ? (
-                <img src={risopoLogo} alt="Risopo" className="h-8 w-8" />
-              ) : (
-                <div className="flex items-center gap-3">
-                  {(showBuilderBack || showPreviewBack) && (
-                    <button
-                      type="button"
-                      onClick={
-                        showPreviewBack
-                          ? () => navigate('/builder?step=payment')
-                          : handleBuilderBack
-                      }
-                      aria-label="Back to previous step"
+          {isInvoiceFullPreview ? (
+            <div className="mx-auto flex items-center justify-between px-4 py-4 md:px-8">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  aria-label="Back to previous page"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
+                >
+                  <span className="icon material-symbols-rounded text-[20px]">arrow_back</span>
+                </button>
+                <span className="text-lg font-semibold text-ink">
+                  {fullInvoice?.invoiceNumber || 'Invoice'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleFullPreviewDownload}
+                  disabled={downloading || !fullInvoice}
+                  aria-label="Download invoice"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-blue)] text-xl text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60 md:h-11 md:w-11"
+                >
+                  {downloading ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  ) : (
+                    <span className="icon material-symbols-rounded text-[20px]">download</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`mx-auto flex items-center justify-between px-4 py-4 transition-all md:px-8 ${
+                scrolled
+                  ? 'bg-gradient-to-b from-white/85 via-white/60 to-transparent backdrop-blur-md dark:from-black/70 dark:via-black/40 dark:to-transparent'
+                  : 'bg-transparent'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                {showLogo ? (
+                  <img src={risopoLogo} alt="Risopo" className="h-8 w-8" />
+                ) : (
+                  <div className="flex items-center gap-3">
+                    {(showBuilderBack || showPreviewBack || showInvoiceBack) && (
+                      <button
+                        type="button"
+                        onClick={
+                          showPreviewBack
+                            ? () => navigate('/builder?step=payment')
+                            : showBuilderBack
+                              ? handleBuilderBack
+                              : () => navigate(-1)
+                        }
+                        aria-label="Back to previous page"
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
+                      >
+                        <span className="icon material-symbols-rounded text-[20px]">
+                          arrow_back
+                        </span>
+                      </button>
+                    )}
+                    <span className="text-[clamp(18px,3.2vw,28px)] font-bold text-ink">
+                      {headerTitle}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                {isBuilderPreview && (
+                  <>
+                    <Link
+                      to="/dashboard"
+                      aria-label="Go to dashboard"
                       className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
                     >
-                      <span className="icon material-symbols-rounded text-[20px]">
-                        arrow_back
-                      </span>
+                      <span className="icon material-symbols-rounded text-[20px]">home</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handlePreviewDownload}
+                      disabled={downloading || !previewInvoice}
+                      aria-label="Download invoice"
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-blue)] text-xl text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60 md:h-11 md:w-11"
+                    >
+                      {downloading ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      ) : (
+                        <span className="icon material-symbols-rounded text-[20px]">
+                          download
+                        </span>
+                      )}
                     </button>
-                  )}
-                  <span className="text-[clamp(18px,3.2vw,28px)] font-bold text-ink">
-                    {headerTitle}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-gray-700">
-              {isBuilderPreview && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handlePreviewSave}
-                    disabled={!ready || saving || saved}
-                    aria-label={saved ? 'Invoice saved' : 'Share invoice'}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl transition-colors disabled:cursor-not-allowed disabled:opacity-60 md:h-11 md:w-11"
-                  >
-                    {saving ? (
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
-                    ) : (
-                      <span className="icon material-symbols-rounded text-[20px]">
-                        {saved ? 'check' : 'share'}
-                      </span>
-                    )}
-                  </button>
+                  </>
+                )}
+                {showHomeButton && (
                   <Link
                     to="/dashboard"
                     aria-label="Go to dashboard"
@@ -318,71 +442,47 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   >
                     <span className="icon material-symbols-rounded text-[20px]">home</span>
                   </Link>
+                )}
+                {pathname === '/invoices' && (
                   <button
                     type="button"
-                    onClick={handlePreviewDownload}
-                    disabled={downloading || !previewInvoice}
-                    aria-label="Download invoice"
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-blue)] text-xl text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60 md:h-11 md:w-11"
+                    onClick={() => setShowClearInvoicesModal(true)}
+                    disabled={!ready || clearing}
+                    aria-label="Clear all invoices"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-xl text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60 md:h-11 md:w-11"
                   >
-                    {downloading ? (
+                    {clearing ? (
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
                     ) : (
                       <span className="icon material-symbols-rounded text-[20px]">
-                        download
+                        delete_forever
                       </span>
                     )}
                   </button>
-                </>
-              )}
-              {showHomeButton && (
-                <Link
-                  to="/dashboard"
-                  aria-label="Go to dashboard"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
-                >
-                  <span className="icon material-symbols-rounded text-[20px]">home</span>
-                </Link>
-              )}
-              {pathname === '/invoices' && (
-                <button
-                  type="button"
-                  onClick={() => setShowClearInvoicesModal(true)}
-                  disabled={!ready || clearing}
-                  aria-label="Clear all invoices"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-xl text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60 md:h-11 md:w-11"
-                >
-                  {clearing ? (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                  ) : (
+                )}
+                {!isBuilderPreview && !isInvoiceFullPreview && (
+                  <button
+                    aria-label="Toggle theme"
+                    onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
+                  >
                     <span className="icon material-symbols-rounded text-[20px]">
-                      delete_forever
+                      {theme === 'dark' ? 'light_mode' : 'dark_mode'}
                     </span>
-                  )}
-                </button>
-              )}
-              {!isBuilderPreview && (
-                <button
-                  aria-label="Toggle theme"
-                  onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl md:h-11 md:w-11"
-                >
-                  <span className="icon material-symbols-rounded text-[20px]">
-                    {theme === 'dark' ? 'light_mode' : 'dark_mode'}
-                  </span>
-                </button>
-              )}
-              {showNewInvoice && (
-                <Link
-                  to="/builder"
-                  className="hidden md:inline-flex items-center gap-2 rounded-full bg-[var(--brand-blue)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] active:bg-[var(--brand-blue-pressed)] md:px-5 md:py-[10px]"
-                >
-                  <span className="icon material-symbols-rounded text-[18px]">add</span>
-                  New Invoice
-                </Link>
-              )}
+                  </button>
+                )}
+                {showNewInvoice && (
+                  <Link
+                    to="/builder"
+                    className="hidden md:inline-flex items-center gap-2 rounded-full bg-[var(--brand-blue)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] active:bg-[var(--brand-blue-pressed)] md:px-5 md:py-[10px]"
+                  >
+                    <span className="icon material-symbols-rounded text-[18px]">add</span>
+                    New Invoice
+                  </Link>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </header>
         <main className="mx-auto max-w-5xl px-4 pb-32 pt-1 md:px-10 md:pb-8 md:pt-2 lg:px-12">
           {children}

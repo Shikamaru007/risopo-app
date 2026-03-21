@@ -1,5 +1,6 @@
 import React from 'react';
 import { InvoiceRecord } from '../types/invoice';
+import { InvoiceActionsMenu } from './InvoiceActionsMenu';
 
 const formatCurrency = (value: number, currency: string) => {
   try {
@@ -26,10 +27,19 @@ const formatDate = (value?: string) => {
 
 interface InvoiceCardProps {
   invoice: InvoiceRecord;
-  onMenuClick?: () => void;
+  onView?: () => void;
+  onDuplicate?: () => void;
+  onDownload?: () => void;
+  onDelete?: () => void;
 }
 
-export const InvoiceCard: React.FC<InvoiceCardProps> = ({ invoice, onMenuClick }) => {
+export const InvoiceCard: React.FC<InvoiceCardProps> = ({
+  invoice,
+  onView,
+  onDuplicate,
+  onDownload,
+  onDelete
+}) => {
   const status = invoice.status ?? 'pending';
   const statusLabel = status === 'paid' ? 'Paid' : 'Pending';
   const statusStyles =
@@ -49,20 +59,16 @@ export const InvoiceCard: React.FC<InvoiceCardProps> = ({ invoice, onMenuClick }
             {formatDate(invoice.createdAt)}
           </span>
         </div>
-        <button
-          type="button"
-          aria-label="Invoice actions"
-          onClick={onMenuClick}
-          className="flex h-6 w-6 items-center justify-center rounded-full bg-white"
-        >
-          <span className="icon material-symbols-rounded text-[16px] text-[#111111]">
-            more_vert
-          </span>
-        </button>
+        <InvoiceActionsMenu
+          onView={onView}
+          onDuplicate={onDuplicate}
+          onDownload={onDownload}
+          onDelete={onDelete}
+        />
       </div>
       <div className="mt-3 flex items-end justify-between">
         <div className="flex w-[140px] flex-col gap-0">
-          <span className="text-[12px] font-medium text-[#919191] font-['Google_Sans_Mono',monospace]">
+          <span className="text-[12px] font-medium text-[#919191] font-['Google Sans Mono',monospace]">
             {invoice.invoiceNumber}
           </span>
           <span className="text-[14px] font-medium text-black">{invoice.client?.name}</span>
@@ -74,3 +80,4 @@ export const InvoiceCard: React.FC<InvoiceCardProps> = ({ invoice, onMenuClick }
     </div>
   );
 };
+

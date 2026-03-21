@@ -4,6 +4,7 @@ export interface ClientInfo {
   name: string;
   email?: string;
   address?: string;
+  phone?: string;
 }
 
 export interface InvoiceItem {

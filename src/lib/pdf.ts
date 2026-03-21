@@ -239,6 +239,7 @@ const buildPdfFromData = async (invoice: InvoiceRecord) => {
   const toName = invoice.client?.name?.trim() || '';
   const toEmail = invoice.client?.email?.trim() || '';
   const toAddress = invoice.client?.address?.trim() || '';
+  const toPhone = invoice.client?.phone?.trim() || '';
 
   doc.setFontSize(9);
   doc.setTextColor('#9599a0');
@@ -247,7 +248,7 @@ const buildPdfFromData = async (invoice: InvoiceRecord) => {
   doc.text('To', pageMargin + 210, partyStartY);
 
   const fromLines = [fromName, fromEmail, fromPhone].filter(Boolean);
-  const toLines = [toName, toEmail, toAddress].filter(Boolean);
+  const toLines = [toName, toEmail, toPhone || toAddress].filter(Boolean);
 
   doc.setTextColor('#5f6368');
   doc.setFont(fonts.primary, 'normal');
