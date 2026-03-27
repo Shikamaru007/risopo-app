@@ -19,11 +19,6 @@ type SettingsForm = {
   logoId?: string;
 };
 
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-};
-
 const emptyForm: SettingsForm = {
   businessName: '',
   businessEmail: '',
@@ -54,8 +49,6 @@ export const SettingsPage: React.FC = () => {
   const [clearing, setClearing] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const installPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
-  const [installReady, setInstallReady] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const savingRef = useRef(false);
   const pendingSaveRef = useRef<SettingsRecord | null>(null);
@@ -372,26 +365,6 @@ export const SettingsPage: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      installPromptRef.current = event as BeforeInstallPromptEvent;
-      setInstallReady(true);
-    };
-
-    const handleAppInstalled = () => {
-      installPromptRef.current = null;
-      setInstallReady(false);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-    };
-  }, []);
 
   const methodsByType = useMemo(() => {
     return {
@@ -889,26 +862,6 @@ export const SettingsPage: React.FC = () => {
           {clearing ? 'Clearing…' : 'Clear settings'}
         </button>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={async () => {
-              const promptEvent = installPromptRef.current;
-              if (!promptEvent) return;
-              await promptEvent.prompt();
-              try {
-                const choice = await promptEvent.userChoice;
-                if (choice.outcome !== 'accepted') return;
-              } finally {
-                installPromptRef.current = null;
-                setInstallReady(false);
-              }
-            }}
-            disabled={!installReady}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <span className="icon material-symbols-rounded text-[18px]">download</span>
-            Install
-          </button>
           <button
             type="button"
             onClick={handleSave}

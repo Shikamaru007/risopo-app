@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { navItems, NavIconName } from '../utils/nav';
 import risopoLogo from '../assets/risopo.svg';
@@ -12,6 +12,11 @@ import { ConfirmationModal } from '../components/ConfirmationModal';
 interface AppLayoutProps {
   children: React.ReactNode;
 }
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
 
 const NavIcon: React.FC<{ name: NavIconName; active: boolean }> = ({ name, active }) => {
   return (
@@ -122,6 +127,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const showNewInvoice = pathname === '/dashboard';
   const hideNav = pathname.startsWith('/builder') || isInvoiceFullPreview;
   const showHomeButton = pathname === '/builder';
+  const isSettings = pathname.startsWith('/settings');
 
   const builderStepOrder = useMemo(() => ['client', 'items', 'payment'], []);
   const builderStepIndex = useMemo(() => {
@@ -160,6 +166,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [clearing, setClearing] = useState(false);
   const [showClearInvoicesModal, setShowClearInvoicesModal] = useState(false);
   const [fullInvoice, setFullInvoice] = useState<InvoiceRecord | null>(null);
+  const installPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
+  const [installReady, setInstallReady] = useState(false);
 
   const previewInvoice = useMemo(() => {
     if (!isBuilderPreview) return null;
@@ -332,6 +340,41 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
   }, [pathname]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      installPromptRef.current = event as BeforeInstallPromptEvent;
+      setInstallReady(true);
+    };
+
+    const handleAppInstalled = () => {
+      installPromptRef.current = null;
+      setInstallReady(false);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    const promptEvent = installPromptRef.current;
+    if (!promptEvent) return;
+    await promptEvent.prompt();
+    try {
+      const choice = await promptEvent.userChoice;
+      if (choice.outcome !== 'accepted') return;
+    } finally {
+      installPromptRef.current = null;
+      setInstallReady(false);
+    }
+  };
+
   // Share is disabled for now.
 
   return (
@@ -456,6 +499,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                     ) : (
                       'Clear invoices'
                     )}
+                  </button>
+                )}
+                {isSettings && (
+                  <button
+                    type="button"
+                    onClick={handleInstallClick}
+                    disabled={!installReady}
+                    aria-label="Install app"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 md:text-sm"
+                  >
+                    <span className="icon material-symbols-rounded text-[18px]">download</span>
+                    <span className="hidden sm:inline">Install</span>
                   </button>
                 )}
                 {!isBuilderPreview && !isInvoiceFullPreview && (
