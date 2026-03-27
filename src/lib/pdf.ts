@@ -391,13 +391,13 @@ const buildPdfFromData = async (invoice: InvoiceRecord) => {
       doc.text(doc.splitTextToSize(notesText, contentWidth), pageMargin, notesY);
     }
 
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setTextColor('#9599a0');
     doc.setFont(fonts.mono, 'normal');
     doc.text('Payment Details', pageMargin, labelY);
 
     doc.setFont(fonts.primary, 'bold');
-    doc.setFontSize(12);
+    doc.setFontSize(10);
     doc.setTextColor(11, 60, 134);
     // Main line (copyable)
     if (invoice.paymentMethod === 'link') {
@@ -413,7 +413,7 @@ const buildPdfFromData = async (invoice: InvoiceRecord) => {
 
     doc.setFont(fonts.primary, 'normal');
     doc.setTextColor('#787c7d');
-    doc.setFontSize(11);
+    doc.setFontSize(9);
     if (hasLine2) {
       doc.text(paymentLines.line2 as string, pageMargin, line2Y);
     }

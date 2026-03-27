@@ -434,7 +434,7 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
             }`}
           >
             <div className="flex w-full flex-col gap-1">
-              <div className="text-[11px] text-[#7f858b] font-['Google Sans Mono',monospace] font-medium">
+              <div className="text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace] font-medium">
                 Payment Details
               </div>
               {showPaymentBlock && (
@@ -449,7 +449,7 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                     ) : (
                       <>
                         <div
-                          className={`text-[14px] font-semibold tracking-[0.2px] font-['Google Sans',sans-serif] ${
+                          className={`text-[12px] font-semibold tracking-[0.2px] font-['Google Sans',sans-serif] ${
                             isPaymentHighlight ? 'text-[var(--brand-blue)]' : 'text-[#434343]'
                           }`}
                         >
@@ -458,14 +458,14 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                           </span>
                         </div>
                         <div
-                          className="text-[12px] text-[#787c7d] font-['Google Sans',sans-serif] font-medium"
+                          className="text-[10px] text-[#787c7d] font-['Google Sans',sans-serif] font-medium"
                           data-pdf-payment-line="sub1"
                         >
                           {paymentLines?.line2 || '—'}
                         </div>
                         {paymentLines?.line3 ? (
                           <div
-                            className="text-[12px] text-[#787c7d] font-['Google Sans',sans-serif] font-medium"
+                            className="text-[10px] text-[#787c7d] font-['Google Sans',sans-serif] font-medium"
                             data-pdf-payment-line="sub2"
                           >
                             {paymentLines.line3}
