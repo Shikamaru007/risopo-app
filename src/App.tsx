@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppLayout } from './layouts/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { InvoicesPage } from './pages/InvoicesPage';
@@ -20,6 +21,7 @@ const App: React.FC = () => (
       <Route path="/builder/preview" element={<InvoiceGeneratedPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    <SpeedInsights />
   </AppLayout>
 );
 
