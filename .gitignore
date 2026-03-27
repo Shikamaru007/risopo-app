@@ -11,6 +11,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 dev.log
+preview.out.log
+preview.err.log
 
 # editor
 .DS_Store
