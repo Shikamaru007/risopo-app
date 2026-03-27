@@ -197,18 +197,24 @@ const buildPdfFromData = async (invoice: InvoiceRecord) => {
   // Title + invoice number
   doc.setTextColor('#575757');
   doc.setFont(fonts.primary, 'bold');
-  doc.setFontSize(40);
-  doc.text('Invoice', pageWidth - pageMargin, pageMargin + 26, { align: 'right' });
+  doc.setFontSize(56);
+  const titleY = pageMargin + 2;
+  doc.text('Invoice', pageWidth - pageMargin, titleY, {
+    align: 'right',
+    baseline: 'top'
+  });
 
-  doc.setFontSize(9);
+  doc.setFontSize(12);
   doc.setFont(fonts.mono, 'normal');
   doc.setTextColor('#9599a0');
   const invoiceNumber = invoice.invoiceNumber?.trim();
   if (invoiceNumber) {
-    doc.text('Invoice no:', pageWidth - pageMargin - 110, pageMargin + 56);
+    const invoiceLineY = titleY + 26;
+    doc.text('Invoice no:', pageWidth - pageMargin - 120, invoiceLineY);
     doc.setTextColor('#5f6368');
     doc.setFont(fonts.primary, 'normal');
-    doc.text(invoiceNumber, pageWidth - pageMargin, pageMargin + 56, { align: 'right' });
+    doc.setFontSize(14);
+    doc.text(invoiceNumber, pageWidth - pageMargin, invoiceLineY, { align: 'right' });
   }
 
   // Date + Currency
@@ -359,8 +365,8 @@ const buildPdfFromData = async (invoice: InvoiceRecord) => {
   if (paymentLines) {
     const hasLine2 = Boolean(paymentLines.line2);
     const hasLine3 = Boolean(paymentLines.line3);
-    const lineGapPrimary = 14;
-    const lineGapSecondary = 12;
+    const lineGapPrimary = 16;
+    const lineGapSecondary = 14;
     let line1Y = footerBaselineY;
     let line2Y = footerBaselineY;
     let line3Y = footerBaselineY;
@@ -375,7 +381,7 @@ const buildPdfFromData = async (invoice: InvoiceRecord) => {
       line1Y = footerBaselineY;
     }
 
-    const labelY = line1Y - 12;
+    const labelY = line1Y - 14;
 
     if (notesText) {
       const notesY = labelY - 12;
@@ -385,13 +391,13 @@ const buildPdfFromData = async (invoice: InvoiceRecord) => {
       doc.text(doc.splitTextToSize(notesText, contentWidth), pageMargin, notesY);
     }
 
-    doc.setFontSize(9);
+    doc.setFontSize(11);
     doc.setTextColor('#9599a0');
     doc.setFont(fonts.mono, 'normal');
     doc.text('Payment Details', pageMargin, labelY);
 
     doc.setFont(fonts.primary, 'bold');
-    doc.setFontSize(10);
+    doc.setFontSize(12);
     doc.setTextColor(11, 60, 134);
     // Main line (copyable)
     if (invoice.paymentMethod === 'link') {
@@ -407,7 +413,7 @@ const buildPdfFromData = async (invoice: InvoiceRecord) => {
 
     doc.setFont(fonts.primary, 'normal');
     doc.setTextColor('#787c7d');
-    doc.setFontSize(9);
+    doc.setFontSize(11);
     if (hasLine2) {
       doc.text(paymentLines.line2 as string, pageMargin, line2Y);
     }
@@ -541,8 +547,11 @@ const buildPdfFromElement = async (invoice: InvoiceRecord, element: HTMLElement)
   await (document as any).fonts?.ready;
   if (typeof document !== 'undefined' && document.fonts?.load) {
     await Promise.all([
-      document.fonts.load('12px "Google Sans"'),
-      document.fonts.load('12px "Google Sans Mono"')
+      document.fonts.load('400 12px "Google Sans"'),
+      document.fonts.load('500 12px "Google Sans"'),
+      document.fonts.load('700 56px "Google Sans"'),
+      document.fonts.load('800 56px "Google Sans"'),
+      document.fonts.load('400 12px "Google Sans Mono"')
     ]);
   }
   // Hide overlay text during rasterization to avoid duplicate rendering.
@@ -554,6 +563,8 @@ const buildPdfFromElement = async (invoice: InvoiceRecord, element: HTMLElement)
     opacity: el.style.opacity,
     color: el.style.color
   }));
+  const previousPreviewMode = element.getAttribute('data-preview-mode');
+  element.setAttribute('data-preview-mode', 'capture');
   overlayTextEls.forEach((el) => {
     el.style.opacity = '0';
   });
@@ -570,6 +581,11 @@ const buildPdfFromElement = async (invoice: InvoiceRecord, element: HTMLElement)
       el.style.opacity = opacity;
       el.style.color = color;
     });
+    if (previousPreviewMode) {
+      element.setAttribute('data-preview-mode', previousPreviewMode);
+    } else {
+      element.removeAttribute('data-preview-mode');
+    }
   }
   const imgData = canvas.toDataURL('image/jpeg', 0.86);
   // Create the PDF and place the full-page image.

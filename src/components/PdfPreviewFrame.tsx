@@ -6,9 +6,14 @@ const BASE_HEIGHT = 842;
 interface PdfPreviewFrameProps {
   children: React.ReactNode;
   className?: string;
+  previewMode?: 'live' | 'capture';
 }
 
-export const PdfPreviewFrame: React.FC<PdfPreviewFrameProps> = ({ children, className }) => {
+export const PdfPreviewFrame: React.FC<PdfPreviewFrameProps> = ({
+  children,
+  className,
+  previewMode = 'live'
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -45,6 +50,8 @@ export const PdfPreviewFrame: React.FC<PdfPreviewFrameProps> = ({ children, clas
         style={{ width: BASE_WIDTH * scale, height: BASE_HEIGHT * scale }}
       >
         <div
+          data-pdf-capture="true"
+          data-preview-mode={previewMode}
           style={{
             width: BASE_WIDTH,
             height: BASE_HEIGHT,

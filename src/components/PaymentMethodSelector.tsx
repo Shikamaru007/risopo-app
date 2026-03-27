@@ -99,9 +99,9 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => setOpen((prev) => !prev)}
-        className={`inline-flex w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 ${buttonClassName}`}
+        className={`inline-flex w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 ${buttonClassName}`}
       >
-        <span className="text-sm font-semibold text-slate-600">{selected.label}</span>
+        <span className="text-sm font-medium text-slate-600">{selected.label}</span>
         <span className="icon material-symbols-rounded text-[20px] text-slate-400">
           expand_more
         </span>
@@ -127,7 +127,7 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
                   }`}
                 >
                   <span
-                    className={`flex-1 text-left text-sm font-semibold ${
+                    className={`flex-1 text-left text-sm font-medium ${
                       isSelected ? 'text-[var(--brand-blue-dark)]' : 'text-slate-600'
                     }`}
                   >
@@ -172,7 +172,7 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
                   >
                     <span className="icon material-symbols-rounded text-[18px]">arrow_back</span>
                   </button>
-                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  <span className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
                     Payment method
                   </span>
                   <span className="h-9 w-9" aria-hidden />
@@ -192,7 +192,7 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
                       }`}
                     >
                         <span
-                          className={`flex-1 text-left text-sm font-semibold ${
+                          className={`flex-1 text-left text-sm font-medium ${
                             isSelected ? 'text-[var(--brand-blue-dark)]' : 'text-slate-600'
                           }`}
                         >

@@ -19,6 +19,11 @@ type SettingsForm = {
   logoId?: string;
 };
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
+
 const emptyForm: SettingsForm = {
   businessName: '',
   businessEmail: '',
@@ -49,6 +54,8 @@ export const SettingsPage: React.FC = () => {
   const [clearing, setClearing] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const installPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
+  const [installReady, setInstallReady] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const savingRef = useRef(false);
   const pendingSaveRef = useRef<SettingsRecord | null>(null);
@@ -365,6 +372,27 @@ export const SettingsPage: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      installPromptRef.current = event as BeforeInstallPromptEvent;
+      setInstallReady(true);
+    };
+
+    const handleAppInstalled = () => {
+      installPromptRef.current = null;
+      setInstallReady(false);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
   const methodsByType = useMemo(() => {
     return {
       bank: form.paymentMethods.filter((method) => method.type === 'bank'),
@@ -393,7 +421,7 @@ export const SettingsPage: React.FC = () => {
     <div className="space-y-4">
       <section className="card space-y-4 rounded-[24px] p-6 shadow-none">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold text-ink">Logo upload</h3>
+          <h3 className="text-lg font-medium text-ink">Logo upload</h3>
           <p className="text-sm text-slate-500">Upload a logo to appear on generated invoices.</p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
@@ -429,7 +457,7 @@ export const SettingsPage: React.FC = () => {
               </button>
             )}
           </div>
-          <label className="inline-flex items-center gap-2 rounded-full bg-[rgba(15,76,172,0.08)] px-5 py-2.5 text-sm font-semibold text-[var(--brand-blue)]">
+          <label className="inline-flex items-center gap-2 rounded-full bg-[rgba(15,76,172,0.08)] px-5 py-2.5 text-sm font-medium text-[var(--brand-blue)]">
             Upload logo
             <TextInput
               type="file"
@@ -443,7 +471,7 @@ export const SettingsPage: React.FC = () => {
 
       <section className="card space-y-4 rounded-[24px] p-6 shadow-none">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold text-ink">Business information</h3>
+          <h3 className="text-lg font-medium text-ink">Business information</h3>
           <p className="text-sm text-slate-500">Update the details that appear on invoices.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -481,7 +509,7 @@ export const SettingsPage: React.FC = () => {
 
       <section className="card space-y-4 rounded-[24px] p-6 shadow-none">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold text-ink">Currency</h3>
+          <h3 className="text-lg font-medium text-ink">Currency</h3>
           <p className="text-sm text-slate-500">Set the default currency for new invoices.</p>
         </div>
         <div className="relative">
@@ -504,28 +532,28 @@ export const SettingsPage: React.FC = () => {
       <section className="card space-y-5 rounded-[24px] p-6 shadow-none">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-ink">Payment methods</h3>
+            <h3 className="text-lg font-medium text-ink">Payment methods</h3>
             <p className="text-sm text-slate-500">Add bank, crypto, or payment link options.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => addPaymentMethod('bank')}
-              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600"
             >
               + Bank transfer
             </button>
             <button
               type="button"
               onClick={() => addPaymentMethod('crypto')}
-              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600"
             >
               + Crypto
             </button>
             <button
               type="button"
               onClick={() => addPaymentMethod('link')}
-              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600"
             >
               + Payment link
             </button>
@@ -541,7 +569,7 @@ export const SettingsPage: React.FC = () => {
                   className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-600"
                 >
                   <div className="flex flex-col">
-                    <span className="font-semibold text-ink">{method.bankName}</span>
+                    <span className="font-medium text-ink">{method.bankName}</span>
                     <span className="text-xs text-slate-500">
                       {method.accountName} · {method.accountNumber}
                     </span>
@@ -570,14 +598,14 @@ export const SettingsPage: React.FC = () => {
 
             return (
               <div key={method.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <div className="flex items-center justify-between text-sm font-semibold text-slate-600">
+                <div className="flex items-center justify-between text-sm font-medium text-slate-600">
                   Bank transfer
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => saveDraftMethod(method.id)}
                       disabled={!canSave}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
                         canSave
                           ? 'bg-[var(--brand-blue)] text-white hover:bg-[var(--brand-blue-dark)]'
                           : 'bg-slate-200 text-slate-400'
@@ -652,7 +680,7 @@ export const SettingsPage: React.FC = () => {
                   className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-600"
                 >
                   <div className="flex flex-col">
-                    <span className="font-semibold text-ink">{method.label || 'Crypto'}</span>
+                    <span className="font-medium text-ink">{method.label || 'Crypto'}</span>
                     <span className="text-xs text-slate-500">
                       {method.network} · {method.walletAddress}
                     </span>
@@ -682,14 +710,14 @@ export const SettingsPage: React.FC = () => {
 
             return (
               <div key={method.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <div className="flex items-center justify-between text-sm font-semibold text-slate-600">
+                <div className="flex items-center justify-between text-sm font-medium text-slate-600">
                   Crypto
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => saveDraftMethod(method.id)}
                       disabled={!canSave}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
                         canSave
                           ? 'bg-[var(--brand-blue)] text-white hover:bg-[var(--brand-blue-dark)]'
                           : 'bg-slate-200 text-slate-400'
@@ -764,7 +792,7 @@ export const SettingsPage: React.FC = () => {
                   className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-600"
                 >
                   <div className="flex flex-col">
-                    <span className="font-semibold text-ink">{method.label || 'Payment link'}</span>
+                    <span className="font-medium text-ink">{method.label || 'Payment link'}</span>
                     <span className="text-xs text-slate-500">{method.url}</span>
                   </div>
                   <button
@@ -790,14 +818,14 @@ export const SettingsPage: React.FC = () => {
 
             return (
               <div key={method.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <div className="flex items-center justify-between text-sm font-semibold text-slate-600">
+                <div className="flex items-center justify-between text-sm font-medium text-slate-600">
                   Payment link
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => saveDraftMethod(method.id)}
                       disabled={!canSave}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
                         canSave
                           ? 'bg-[var(--brand-blue)] text-white hover:bg-[var(--brand-blue-dark)]'
                           : 'bg-slate-200 text-slate-400'
@@ -856,24 +884,46 @@ export const SettingsPage: React.FC = () => {
           type="button"
           onClick={() => setShowClearModal(true)}
           disabled={!ready || clearing}
-          className="rounded-full border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-full border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {clearing ? 'Clearing…' : 'Clear settings'}
         </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="rounded-full bg-[var(--brand-blue)] px-5 py-2.5 text-sm font-semibold text-white shadow-none transition-colors md:hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {saving ? (
-            <span className="inline-flex h-5 w-5 items-center justify-center">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-            </span>
-          ) : (
-            'Save settings'
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              const promptEvent = installPromptRef.current;
+              if (!promptEvent) return;
+              await promptEvent.prompt();
+              try {
+                const choice = await promptEvent.userChoice;
+                if (choice.outcome !== 'accepted') return;
+              } finally {
+                installPromptRef.current = null;
+                setInstallReady(false);
+              }
+            }}
+            disabled={!installReady}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="icon material-symbols-rounded text-[18px]">download</span>
+            Install
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-full bg-[var(--brand-blue)] px-5 py-2.5 text-sm font-medium text-white shadow-none transition-colors md:hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving ? (
+              <span className="inline-flex h-5 w-5 items-center justify-center">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              </span>
+            ) : (
+              'Save settings'
+            )}
+          </button>
+        </div>
       </div>
       <ConfirmationModal
         open={showClearModal}
@@ -889,7 +939,7 @@ export const SettingsPage: React.FC = () => {
         }}
       />
       <div
-        className={`fixed left-1/2 top-6 z-[90] flex -translate-x-1/2 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition-all ${
+        className={`fixed left-1/2 top-6 z-[90] flex -translate-x-1/2 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 shadow-sm transition-all ${
           showSaved ? 'opacity-100 translate-y-0' : 'pointer-events-none opacity-0 -translate-y-2'
         }`}
         aria-live="polite"

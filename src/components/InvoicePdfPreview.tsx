@@ -189,26 +189,26 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
 
   return (
     <div
-      className={`relative h-[842px] w-[595px] bg-white p-[40px] text-[#787c7d] ${className || ''}`}
+      className={`relative h-[842px] w-[595px] bg-white p-[40px] text-[#787c7d] font-['Google Sans',sans-serif] ${className || ''}`}
     >
       <div className="flex h-full w-full flex-col items-start justify-between">
         <div className="flex w-[507px] flex-1 flex-col justify-between">
           <div className="flex flex-col gap-6">
             <div className="grid grid-cols-[auto_1fr] items-start gap-8">
-              <div className="inline-flex max-h-[69px] max-w-[276px] items-center overflow-hidden rounded-[8px] self-start -mt-[2px]">
+              <div className="inline-flex max-h-[69px] max-w-[276px] items-center overflow-hidden rounded-[8px] self-start">
                 <img
                   alt="Company logo"
                   className="h-auto max-h-[69px] w-auto max-w-[276px] object-contain"
                   src={logoUrl || risopoLogo}
                 />
               </div>
-              <div className="flex flex-col items-end justify-start self-start -mt-[4px]">
-                <div className="text-[38px] font-semibold leading-[38px] text-[#575757]">
+              <div className="flex flex-col items-end justify-start self-start text-right -mt-1">
+                <div className="text-[56px] font-semibold leading-[40px] text-[#575757]">
                   Invoice
                 </div>
-                <div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
+                <div className="invoice-subtitle-row mt-5 flex items-center justify-end gap-2 text-[13px] text-[#7f858b] font-['Google Sans Mono',monospace] font-medium">
                   <div>Invoice no:</div>
-                  <div className="text-[#7d8288]">
+                  <div className="text-[#5f6368] font-medium">
                     {invoice?.invoiceNumber || '#INV-103'}
                   </div>
                 </div>
@@ -434,12 +434,12 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
             }`}
           >
             <div className="flex w-full flex-col gap-1">
-              <div className="text-[10px] text-[#7f858b] font-['Google Sans Mono',monospace]">
+              <div className="text-[11px] text-[#7f858b] font-['Google Sans Mono',monospace] font-medium">
                 Payment Details
               </div>
               {showPaymentBlock && (
                 <div className="mt-[2px] flex items-start justify-between py-[4px]">
-                  <div className="flex w-[190px] flex-col gap-0.5">
+                  <div className="flex w-[190px] flex-col gap-0">
                     {showPaymentSkeleton ? (
                       <>
                         <SkeletonLine width="140px" height="10px" className="animate-pulse" />
@@ -449,7 +449,7 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                     ) : (
                       <>
                         <div
-                          className={`text-[10px] font-medium tracking-[0.2px] font-['Google Sans',sans-serif] ${
+                          className={`text-[14px] font-semibold tracking-[0.2px] font-['Google Sans',sans-serif] ${
                             isPaymentHighlight ? 'text-[var(--brand-blue)]' : 'text-[#434343]'
                           }`}
                         >
@@ -458,14 +458,14 @@ export const InvoicePdfPreview: React.FC<InvoicePdfPreviewProps> = ({
                           </span>
                         </div>
                         <div
-                          className="text-[10px] text-[#787c7d] font-['Google Sans',sans-serif]"
+                          className="text-[12px] text-[#787c7d] font-['Google Sans',sans-serif] font-medium"
                           data-pdf-payment-line="sub1"
                         >
                           {paymentLines?.line2 || '—'}
                         </div>
                         {paymentLines?.line3 ? (
                           <div
-                            className="text-[10px] text-[#787c7d] font-['Google Sans',sans-serif]"
+                            className="text-[12px] text-[#787c7d] font-['Google Sans',sans-serif] font-medium"
                             data-pdf-payment-line="sub2"
                           >
                             {paymentLines.line3}

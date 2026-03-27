@@ -43,6 +43,22 @@ const sanitizeDecimalInput = (value: string) => {
   return `${head}.${rest.join('')}`;
 };
 
+const formatCurrencyInput = (value: string) => {
+  const cleaned = value.replace(/[^\d.]/g, '');
+  const [head, ...rest] = cleaned.split('.');
+  const decimal = rest.join('');
+  if (!head && !decimal) return '';
+  const normalizedHead = head || '0';
+  const withCommas = normalizedHead.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return decimal.length > 0 ? `${withCommas}.${decimal}` : withCommas;
+};
+
+const parseCurrencyValue = (value: string) => {
+  const numeric = value.replace(/,/g, '');
+  const parsed = Number.parseFloat(numeric || '0');
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const sanitizePhoneInput = (value: string) => {
   const cleaned = value.replace(/[^\d+]/g, '');
   if (cleaned.startsWith('+')) {
@@ -232,7 +248,7 @@ const StepPanel: React.FC<{
                       value={item.price}
                       onChange={(event) =>
                         onItemChange(item.id, {
-                          price: sanitizeDecimalInput(event.target.value)
+                          price: formatCurrencyInput(event.target.value)
                         })
                       }
                     />
@@ -255,7 +271,7 @@ const StepPanel: React.FC<{
         <button
           type="button"
           onClick={onAddItem}
-          className="inline-flex w-full items-center justify-center gap-3 rounded-full border border-slate-100 bg-white/80 px-6 py-5 text-sm font-semibold text-slate-700"
+          className="inline-flex w-full items-center justify-center gap-3 rounded-full border border-slate-100 bg-white/80 px-6 py-5 text-sm font-medium text-slate-700"
         >
           Add Item
           <span className="icon material-symbols-rounded text-[20px]">add</span>
@@ -284,7 +300,7 @@ const StepPanel: React.FC<{
                   </div>
                   {paymentDetails && paymentDetails.type === 'bank' ? (
                     <>
-                      <div className="text-sm font-semibold text-ink">
+                      <div className="text-sm font-medium text-ink">
                         {paymentDetails.accountNumber || '—'}
                       </div>
                       <div className="text-xs text-slate-500">
@@ -306,7 +322,7 @@ const StepPanel: React.FC<{
                   </div>
                   {paymentDetails && paymentDetails.type === 'crypto' ? (
                     <>
-                      <div className="text-sm font-semibold text-ink">
+                      <div className="text-sm font-medium text-ink">
                         {paymentDetails.walletAddress || '—'}
                       </div>
                       <div className="text-xs text-slate-500">
@@ -328,7 +344,7 @@ const StepPanel: React.FC<{
                   </div>
                   {paymentDetails && paymentDetails.type === 'link' ? (
                     <>
-                      <div className="text-sm font-semibold text-ink">
+                      <div className="text-sm font-medium text-ink">
                         {paymentDetails.url || '—'}
                       </div>
                       <div className="text-xs text-slate-500">
@@ -370,7 +386,7 @@ const StepPanel: React.FC<{
                   inputMode="decimal"
                   value={discountAmount}
                   onChange={(event) =>
-                    onDiscountAmountChange(sanitizeDecimalInput(event.target.value))
+                    onDiscountAmountChange(formatCurrencyInput(event.target.value))
                   }
                 />
               </label>
@@ -462,7 +478,7 @@ export const InvoiceBuilderPage: React.FC = () => {
   const normalizedItems = useMemo(() => {
     return items.map((item) => {
       const qty = Number.parseFloat(item.quantity || '0');
-      const price = Number.parseFloat(item.price || '0');
+      const price = parseCurrencyValue(item.price);
       const quantity = Number.isFinite(qty) ? qty : 0;
       const unitPrice = Number.isFinite(price) ? price : 0;
       const total = quantity * unitPrice;
@@ -491,7 +507,7 @@ export const InvoiceBuilderPage: React.FC = () => {
     items.forEach((item) => {
       const name = item.name.trim();
       const qtyValue = Number.parseFloat(item.quantity || '0');
-      const priceValue = Number.parseFloat(item.price || '0');
+      const priceValue = parseCurrencyValue(item.price);
       const hasAnyInput =
         name.length > 0 || item.quantity.trim().length > 0 || item.price.trim().length > 0;
       const isComplete = name.length > 0 && qtyValue > 0 && priceValue > 0;
@@ -514,8 +530,7 @@ export const InvoiceBuilderPage: React.FC = () => {
 
   const discountAmountValue = useMemo(() => {
     if (!includeDiscount) return 0;
-    const amount = Number.parseFloat(discountAmount || '0');
-    if (!Number.isFinite(amount)) return 0;
+    const amount = parseCurrencyValue(discountAmount);
     return Math.min(Math.max(amount, 0), subtotal);
   }, [discountAmount, includeDiscount, subtotal]);
 
@@ -840,10 +855,10 @@ export const InvoiceBuilderPage: React.FC = () => {
       <div className="mx-auto w-full max-w-[1240px] space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0 space-y-0.5">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
               Step {stepIndex + 1} of {totalSteps}
             </p>
-            <h3 className="text-xl font-semibold text-ink md:text-2xl">
+            <h3 className="text-xl font-medium text-ink md:text-2xl">
               {currentStep.title}
             </h3>
           </div>
@@ -862,10 +877,10 @@ export const InvoiceBuilderPage: React.FC = () => {
             {stepIndex > 0 && (
               <div className="flex items-center justify-between gap-3 rounded-[24px] border border-slate-100 bg-white/80 px-5 py-4">
                 <div className="min-w-0">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
                     Client
                   </div>
-                  <div className="text-sm font-semibold text-ink">
+                  <div className="text-sm font-medium text-ink">
                     {client.name.trim() || 'Client name'}
                   </div>
                   <div className="text-xs text-slate-500">
@@ -882,10 +897,10 @@ export const InvoiceBuilderPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="text-right">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400 font-['Google_Sans_Mono',monospace]">
                       Total due
                     </div>
-                    <div className="text-base font-semibold text-ink">
+                    <div className="text-base font-medium text-ink">
                       {currencySymbol}{' '}
                       {totalDue.toLocaleString('en-NG', { maximumFractionDigits: 2 })}
                     </div>
@@ -930,7 +945,7 @@ export const InvoiceBuilderPage: React.FC = () => {
                 type="button"
                 onClick={goPrev}
                 disabled={stepIndex === 0 || isGenerating}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-white px-5 py-5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-white px-5 py-5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span className="icon material-symbols-rounded text-[18px]">arrow_back</span>
                 Back
@@ -939,7 +954,7 @@ export const InvoiceBuilderPage: React.FC = () => {
                 type="button"
                 onClick={isFinalStep ? handleGenerate : goNext}
                 disabled={isGenerating || !canProceed}
-                className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[var(--brand-blue)] px-5 py-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[var(--brand-blue)] px-5 py-5 text-sm font-medium text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isGenerating ? (
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
@@ -1003,7 +1018,7 @@ export const InvoiceBuilderPage: React.FC = () => {
             type="button"
             onClick={goPrev}
             disabled={stepIndex === 0 || isGenerating}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-white px-5 py-5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-white px-5 py-5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <span className="icon material-symbols-rounded text-[18px]">arrow_back</span>
             Back
@@ -1012,7 +1027,7 @@ export const InvoiceBuilderPage: React.FC = () => {
             type="button"
             onClick={isFinalStep ? handleGenerate : goNext}
             disabled={isGenerating || !canProceed}
-            className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[var(--brand-blue)] px-5 py-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[var(--brand-blue)] px-5 py-5 text-sm font-medium text-white transition-colors hover:bg-[var(--brand-blue-dark)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isGenerating ? (
               <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />

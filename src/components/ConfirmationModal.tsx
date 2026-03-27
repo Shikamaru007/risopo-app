@@ -34,7 +34,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       />
       <div className="relative w-full max-w-md rounded-[20px] border border-slate-200 bg-white p-5 shadow-xl">
         <div className="space-y-2">
-          <h3 className="text-base font-semibold text-ink">{title}</h3>
+          <h3 className="text-base font-medium text-ink">{title}</h3>
           {description && <p className="text-sm text-slate-500">{description}</p>}
         </div>
         <div className="mt-5 flex items-center justify-end gap-2">
@@ -42,7 +42,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {cancelLabel}
           </button>
@@ -50,7 +50,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className={`rounded-full px-4 py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+            className={`rounded-full px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
               destructive ? 'bg-red-600 hover:bg-red-700' : 'bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-dark)]'
             }`}
           >

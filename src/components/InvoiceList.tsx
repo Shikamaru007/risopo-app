@@ -58,7 +58,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span
-                className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
                   (invoice.status ?? 'pending') === 'paid'
                     ? 'bg-[#ecfdf3] text-[#027a48]'
                     : 'bg-[#fefbe8] text-[#ca8504]'
@@ -67,7 +67,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                 {(invoice.status ?? 'pending') === 'paid' ? 'Paid' : 'Pending'}
               </span>
               <span className="text-sm text-black">•</span>
-              <span className="text-[11px] font-semibold text-[#919191]">
+              <span className="text-[11px] font-medium text-[#919191]">
                 {formatDate(invoice.createdAt)}
               </span>
             </div>
@@ -83,12 +83,12 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
           </div>
           <div className="mt-3 flex items-end justify-between">
             <div className="flex w-[120px] flex-col gap-0.5">
-              <span className="text-[11px] font-semibold text-[#919191]">
+              <span className="text-[11px] font-medium text-[#919191]">
                 {invoice.invoiceNumber}
               </span>
               <span className="text-sm font-medium text-black">{invoice.client?.name}</span>
             </div>
-            <span className="text-xl font-semibold text-black">
+            <span className="text-xl font-medium text-black">
               {formatCurrency(invoice.total, currencyFallback)}
             </span>
           </div>

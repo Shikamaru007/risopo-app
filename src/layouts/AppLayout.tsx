@@ -227,7 +227,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         }
       }
       const previewElement =
-        document.getElementById('invoice-preview-pdf') ||
+        (document.querySelector('[data-pdf-capture="true"]') as HTMLElement | null) ||
         document.getElementById('invoice-preview');
       const timeoutMs = 12000;
       const doc = await Promise.race([
@@ -270,7 +270,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         }
       }
       const previewElement =
-        document.getElementById('invoice-preview-pdf') ||
+        (document.querySelector('[data-pdf-capture="true"]') as HTMLElement | null) ||
         document.getElementById('invoice-preview');
       const timeoutMs = 12000;
       const doc = await Promise.race([
@@ -350,7 +350,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 >
                   <span className="icon material-symbols-rounded text-[20px]">arrow_back</span>
                 </button>
-                <span className="text-lg font-semibold text-ink">
+                <span className="text-lg font-medium text-ink">
                   {fullInvoice?.invoiceNumber || 'Invoice'}
                 </span>
               </div>
@@ -401,7 +401,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                         </span>
                       </button>
                     )}
-                    <span className="text-[clamp(18px,3.2vw,28px)] font-bold text-ink">
+                    <span className="text-[clamp(18px,3.2vw,28px)] font-medium text-ink">
                       {headerTitle}
                     </span>
                   </div>
@@ -449,14 +449,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                     onClick={() => setShowClearInvoicesModal(true)}
                     disabled={!ready || clearing}
                     aria-label="Clear all invoices"
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-xl text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60 md:h-11 md:w-11"
+                    className="rounded-full border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {clearing ? (
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      'Clearing…'
                     ) : (
-                      <span className="icon material-symbols-rounded text-[20px]">
-                        delete_forever
-                      </span>
+                      'Clear invoices'
                     )}
                   </button>
                 )}
@@ -474,7 +472,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 {showNewInvoice && (
                   <Link
                     to="/builder"
-                    className="hidden md:inline-flex items-center gap-2 rounded-full bg-[var(--brand-blue)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-blue-dark)] active:bg-[var(--brand-blue-pressed)] md:px-5 md:py-[10px]"
+                    className="hidden md:inline-flex items-center gap-2 rounded-full bg-[var(--brand-blue)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--brand-blue-dark)] active:bg-[var(--brand-blue-pressed)] md:px-5 md:py-[10px]"
                   >
                     <span className="icon material-symbols-rounded text-[18px]">add</span>
                     New Invoice

@@ -70,9 +70,9 @@ export const CurrencySelector: React.FC<CurrencySelectorProps> = ({
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => setOpen(true)}
-        className={`inline-flex w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 ${buttonClassName}`}
+        className={`inline-flex w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 ${buttonClassName}`}
       >
-        <span className="text-base font-semibold text-slate-500">{selected.symbol}</span>
+        <span className="text-base font-medium text-slate-500">{selected.symbol}</span>
         <span className="icon material-symbols-rounded text-[20px] text-slate-400">
           expand_more
         </span>
@@ -104,7 +104,7 @@ export const CurrencySelector: React.FC<CurrencySelectorProps> = ({
                   }`}
                 >
                   <span
-                    className={`text-base font-semibold ${
+                    className={`text-base font-medium ${
                       isSelected ? 'text-[var(--brand-blue-dark)]' : 'text-slate-600'
                     }`}
                   >
@@ -145,7 +145,7 @@ export const CurrencySelector: React.FC<CurrencySelectorProps> = ({
                   >
                     <span className="icon material-symbols-rounded text-[18px]">arrow_back</span>
                   </button>
-                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  <span className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
                     Currency
                   </span>
                   <span className="h-9 w-9" aria-hidden />
@@ -165,7 +165,7 @@ export const CurrencySelector: React.FC<CurrencySelectorProps> = ({
                         }`}
                       >
                         <span
-                          className={`text-base font-semibold ${
+                          className={`text-base font-medium ${
                             isSelected ? 'text-[var(--brand-blue-dark)]' : 'text-slate-600'
                           }`}
                         >

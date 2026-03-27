@@ -4,7 +4,7 @@
 
 @font-face {
   font-family: "Google Sans";
-  src: url("/fonts/GoogleSans-Regular.ttf") format("truetype");
+  src: url("../assets/fonts/GoogleSans-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -12,15 +12,39 @@
 
 @font-face {
   font-family: "Google Sans";
-  src: url("/fonts/GoogleSans-Medium.ttf") format("truetype");
+  src: url("../assets/fonts/GoogleSans-Medium.ttf") format("truetype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
+  font-family: "Google Sans";
+  src: url("../assets/fonts/GoogleSans-Medium.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Google Sans";
+  src: url("../assets/fonts/GoogleSans-Medium.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Google Sans";
+  src: url("../assets/fonts/GoogleSans-Medium.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "Google Sans Mono";
-  src: url("/fonts/GoogleSansMono-Regular.ttf") format("truetype");
+  src: url("../assets/fonts/GoogleSansMono-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -108,4 +132,8 @@ body {
 
 .card {
   @apply bg-white rounded-2xl;
+}
+
+[data-preview-mode="live"] .invoice-subtitle-row {
+  margin-top: 8px;
 }

@@ -10,7 +10,7 @@ const fontCache: {
   regular?: string;
   medium?: string;
   mono?: string;
-  loading?: Promise<FontLoadResult>;
+  loading?: Promise<void>;
 } = {};
 
 const blobToBase64 = (blob: Blob) =>
@@ -36,31 +36,39 @@ const fetchFont = async (url: string) => {
   }
 };
 
+const fontUrls = {
+  regular: new URL('../assets/fonts/GoogleSans-Regular.ttf', import.meta.url).href,
+  medium: new URL('../assets/fonts/GoogleSans-Medium.ttf', import.meta.url).href,
+  mono: new URL('../assets/fonts/GoogleSansMono-Regular.ttf', import.meta.url).href
+};
+
 export const ensurePdfFonts = async (doc: jsPDF): Promise<FontLoadResult> => {
-  if (!fontCache.loading) {
+  if (!fontCache.loading && (!fontCache.regular || !fontCache.medium || !fontCache.mono)) {
     fontCache.loading = (async () => {
       if (!fontCache.regular) {
-        fontCache.regular = await fetchFont('/fonts/GoogleSans-Regular.ttf');
+        fontCache.regular = await fetchFont(fontUrls.regular);
       }
       if (!fontCache.medium) {
-        fontCache.medium = await fetchFont('/fonts/GoogleSans-Medium.ttf');
+        fontCache.medium = await fetchFont(fontUrls.medium);
       }
       if (!fontCache.mono) {
-        fontCache.mono = await fetchFont('/fonts/GoogleSansMono-Regular.ttf');
+        fontCache.mono = await fetchFont(fontUrls.mono);
       }
-
-      const hasPrimary = Boolean(fontCache.regular);
-      const hasMono = Boolean(fontCache.mono);
-
-      return {
-        primary: hasPrimary ? 'GoogleSans' : 'helvetica',
-        mono: hasMono ? 'GoogleSansMono' : 'courier',
-        hasCustom: hasPrimary && hasMono
-      };
     })();
   }
 
-  const result = await fontCache.loading;
+  if (fontCache.loading) {
+    await fontCache.loading;
+    fontCache.loading = undefined;
+  }
+
+  const hasPrimary = Boolean(fontCache.regular);
+  const hasMono = Boolean(fontCache.mono);
+  const result: FontLoadResult = {
+    primary: hasPrimary ? 'GoogleSans' : 'helvetica',
+    mono: hasMono ? 'GoogleSansMono' : 'courier',
+    hasCustom: hasPrimary && hasMono
+  };
   const fontList =
     typeof (doc as any).getFontList === 'function' ? (doc as any).getFontList() : null;
   const hasFont = (family: string, style: string) =>

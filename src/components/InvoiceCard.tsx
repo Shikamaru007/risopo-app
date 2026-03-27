@@ -50,7 +50,7 @@ export const InvoiceCard: React.FC<InvoiceCardProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span
-            className={`inline-flex items-center justify-center rounded-[16px] px-2 py-0.5 text-[12px] font-semibold ${statusStyles}`}
+            className={`inline-flex items-center justify-center rounded-[16px] px-2 py-0.5 text-[12px] font-medium ${statusStyles}`}
           >
             {statusLabel}
           </span>
