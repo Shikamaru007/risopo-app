@@ -19,9 +19,17 @@ preview.err.log
 
 # TypeScript build info
 tsconfig.tsbuildinfo
+tsconfig.node.tsbuildinfo
 
 # emitted JS/CSS (tsc --noEmit prevents, but safeguard)
 src/**/*.js
 src/**/*.js.map
 src/**/*.d.ts
 !src/vite-env.d.ts
+
+# local/private
+AGENT.md
+
+# generated config artifacts
+vite.config.d.ts
+vite.config.js
